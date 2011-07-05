@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <style>
+      @font-face {
+        font-family: "mainfont";
+        /**
+         * Copyright Information of Inconsolata.otf
+         * Lisence: Open Font Lisence
+         * Author: Raph Levien
+         * URL: http://www.levien.com/type/myfonts/inconsolata.html
+         */
+        src: url("Inconsolata.otf") format("opentype");
+      }
+      body {
+        font-family: "mainfont";
+        font-size: 20px;
+      }
+      pre {
+        background-color: black;
+        color: white;
+        padding: 10px;
+      }
+      kbd {
+        color: lime;
+      }
+    </style>
+    <title>FileTomography backup tool</title>
+  <body>
+    <h1>FileTomography backup tool</h1>
+    <section>
+      <h1>Description</h1>
+      <p>FileTomography is a backup tool. Features are;</p>
+      <ul>
+        <li>backing up to a remote server.</li>
+        <li>incremental backup using hard links.</li>
+        <li>backing up not only files itself, but also metadata such as
+        permissions and owners.</li>
+      </ul>
+    </section>
+    <section>
+      <h1>How does it Work?</h1>
+    </section>
+    <section>
+      <h1>Requirements</h1>
+      <ul>
+        <li><a href="http://FreeBSD.org">FreeBSD</a> 8.2</li>
+        <li><a href="http://neko-daisuki.ddo.jp/~SumiTomohiko/yog/index.html">
+        Yog</a> 0.0.10</li>
+      </ul>
+    </section>
+    <section>
+      <h1>Install</h1>
+      <section>
+        <h1>Into a Server</h1>
+        <pre><code>$ <kbd>make server</kbd></code></pre>
+      </section>
+      <section>
+        <h1>Into a Client</h1>
+        <pre><code>$ <kbd>make client</kbd></code></pre>
+      </section>
+    </section>
+    <section>
+      <h1>Run</h1>
+    </section>
+    <section>
+      <h1>About <code>.meta</code> directory</h1>
+    </section>
+    <section>
+      <h1>Protocol between a Server and a Client</h1>
+    </section>
+    <section>
+      <h1>Author</h1>
+      <p>The author of FileTomograpy is
+      <a href="http://neko-daisuki.ddo.jp/~SumiTomohiko">SumiTomohiko</a>.</p>
+  </body>
+</html>
+<!--
+vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2
+-->

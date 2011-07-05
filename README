@@ -1,0 +1,26 @@
+
+FileTomography
+**************
+
+Description
+===========
+
+FileTomography is a backup tool. Features are;
+
+* backing up to a remote server.
+* incremental backup using hard links.
+* backing up not only files itself, but also metadata such as permissions and
+  owners.
+
+Documentation
+=============
+
+The documentation is at ``doc`` directory in the source tree, and at
+http://neko-daisuki.ddo.jp/~SumiTomohiko/FileTomography/index.html.
+
+Author
+======
+
+The author is SumiTomohiko (http://neko-daisuki.ddo.jp/~SumiTomohiko).
+
+.. vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=rst

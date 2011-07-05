@@ -1,0 +1,19 @@
+
+How to Install
+**************
+
+Install into a Server
+=====================
+
+What you must do is::
+
+  $ make server
+
+Install into a Client
+=====================
+
+What you must do is::
+
+  $ make client
+
+.. vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=rst
