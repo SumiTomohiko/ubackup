@@ -34,14 +34,18 @@
       <p>Unnamed Backup Tool is a backup tool. Features are;</p>
       <ul>
         <li>backing up to a remote server.</li>
+        <li>backing up into <code><var>year</var>-<var>month</var>-<var>day</var>_<var>hour</var>:<var>minute</var>:<var>second</var>.<var>millisecond</var></code> directory.</li>
         <li>incremental backup using hard links.</li>
         <li>backing up not only files itself, but also metadata such as
         permissions and owners.</li>
-        <li>keeping past backups for some days.</li>
       </ul>
     </section>
     <section>
       <h1>How does it Work?</h1>
+      <p>If a file is unchanged, Unnamed Backup Tool makes a hard link to a
+      previous one.</p>
+      <p>Unnamed Backup Tool also stores meta data of a file under
+      <code>.meta</code> directory.</p>
     </section>
     <section>
       <h1>Requirements</h1>
@@ -64,12 +68,63 @@
     </section>
     <section>
       <h1>Run</h1>
+      <pre><code>$ <kbd>ubtc</kbd></code></pre>
     </section>
     <section>
       <h1>About <code>.meta</code> directory</h1>
+      <p>Each directory has <code>.meta</code> directory, which contains meta
+      data of files in the directory.</p>
+      <p>A meta data file of <code>foo</code> is <code>foo.meta</code>. This
+      file has mode, uid and gid in each line.</p>
     </section>
     <section>
       <h1>Protocol between a Server and a Client</h1>
+      <section>
+        <h1><code>DIR</code> command</h1>
+        <section>
+          <h1>Format</h1>
+          <p><code>DIR <var>name</var> <var>mode</var> <var>uid</var> <var>gid</var></code></p>
+        </section>
+        <section>
+          <h1>Response</h1>
+          <p><code>OK</code> or <code>NG</code>.</p>
+        </section>
+      </section>
+      <section>
+        <h1><code>FILE</code> command</h1>
+        <section>
+          <h1>Format</h1>
+          <p><code>FILE <var>name</var> <var>mode</var> <var>uid</var> <var>gid</var> <var>timestamp</var></code></p>
+        </section>
+        <section>
+          <h1>Response</h1>
+          <p><code>CHANGED</code>, <code>UNCHANGED</code> or <code>NG</code>.
+          </p>
+        </section>
+      </section>
+      <section>
+        <h1><code>BODY</code> command</h1>
+        <section>
+          <h1>Format</h1>
+          <p><code>BODY <var>size</var></code></p>
+          <p>File body follows after a CRLF.</p>
+        </section>
+        <section>
+          <h1>Response</h1>
+          <p><code>OK</code> or <code>NG</code>.</p>
+        </section>
+      </section>
+      <section>
+        <h1><code>SYMLINK</code> command</h1>
+        <section>
+          <h1>Format</h1>
+          <p><code>SYMLINK <var>name</var> <var>mode</var> <var>uid</var> <var>gid</var> <var>src</var></code></p>
+        </section>
+        <section>
+          <h1>Response</h1>
+          <p><code>OK</code> or <code>NG</code>.</p>
+        </section>
+      </section>
     </section>
     <section>
       <h1>Author</h1>

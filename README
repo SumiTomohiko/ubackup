@@ -8,10 +8,10 @@ Description
 Unnamed Backup Tool is a backup tool. Features are;
 
 * backing up to a remote server.
+* backing up into year-month-day_hour:minute:second.millisecond directory.
 * incremental backup using hard links.
 * backing up not only files itself, but also metadata such as permissions and
   owners.
-* keeping past backups for some days.
 
 Documentation
 =============
