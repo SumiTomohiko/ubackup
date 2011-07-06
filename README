@@ -1,11 +1,11 @@
 
-FileTomography
-**************
+Unnamed Backup Tool
+*******************
 
 Description
 ===========
 
-FileTomography is a backup tool. Features are;
+Unnamed Backup Tool is a backup tool. Features are;
 
 * backing up to a remote server.
 * incremental backup using hard links.
@@ -16,7 +16,7 @@ Documentation
 =============
 
 The documentation is at ``doc`` directory in the source tree, and at
-http://neko-daisuki.ddo.jp/~SumiTomohiko/FileTomography/index.html.
+http://neko-daisuki.ddo.jp/~SumiTomohiko/UnnamedBackupTool/index.html.
 
 Author
 ======
