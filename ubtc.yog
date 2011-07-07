@@ -1,3 +1,37 @@
 #!/usr/local/bin/yog
 
+def send(fp, line)
+  fp.write(line + "\r\n")
+  fp.flush()
+end
+
+def readline(fp)
+  line = ""
+  while (c = fp.read(1)) != "\r"
+    line << c
+  end
+  fp.read(1)  # "\n"
+  return line
+end
+
+def client_main(in, out)
+  send(out, "DIR foo 644 1001 1001")
+  print(readline(in))
+end
+
+def main()
+  cmd = [EXECUTABLE, "ubts.yog"]
+  #cmd = ["/bin/sh", "-c", "cat > foo.log"]
+  proc = Process.new(cmd).run()
+  try
+    return client_main(proc.stdout, proc.stdin)
+  finally
+    proc.wait()
+  end
+end
+
+if __FILE__ == ARGV.get(0)
+  main()
+end
+
 # vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2

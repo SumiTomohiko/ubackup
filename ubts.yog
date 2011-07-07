@@ -1,3 +1,32 @@
 #!/usr/local/bin/yog
 
+from libc.file import read, write
+
+def send(line)
+  print(line + "\r\n")
+end
+
+def readline(line="")
+  buf = Buffer.new(1)
+  nbytes = read(0, buf, buf.size)
+  if nbytes != buf.size
+    raise Exception.new("read error")
+  end
+  c = buf.to_s(1, ENCODINGS["ascii"])
+  if c == "\r"
+    read(0, buf, buf.size) # "\n"
+    return line
+  end
+  return readline(line + c)
+end
+
+def main()
+  readline()
+  send("OK")
+end
+
+if __FILE__ == ARGV.get(0)
+  main()
+end
+
 # vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2
