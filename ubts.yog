@@ -1,11 +1,10 @@
 #!/usr/local/bin/yog
 
 from libc.file import read, write
+from syslog import LOG_INFO, LOG_LOCAL0, LOG_PID, openlog, syslog
 
 def log(msg)
-  File.open("ubts.log", "a") do [fp]
-    fp.write(msg + "\n")
-  end
+  syslog(LOG_INFO, msg)
 end
 
 def send(line)
@@ -30,14 +29,16 @@ def main(dest)
   now = Datetime.new()
   fmt = "%Y-%m-%d_%H:%M:%S.{0:03}".format(now.microsecond // 1000)
   dir = dest / now.strftime(fmt)
-  log(dir)
+  log("New directory: {0}".format(dir))
   make_dirs(dir)
   readline()
   send("OK")
 end
 
 if __FILE__ == ARGV.get(0)
-  main(ARGV[1].to_path())
+  openlog(ARGV[0], LOG_PID, LOG_LOCAL0) do
+    main(ARGV[1].to_path())
+  end
 end
 
 # vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2
