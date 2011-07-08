@@ -1,10 +1,14 @@
 #!/usr/local/bin/yog
 
 from libc.file import read, write
-from syslog import LOG_INFO, LOG_LOCAL0, LOG_PID, openlog, syslog
+from syslog import LOG_DEBUG, LOG_INFO, LOG_LOCAL0, LOG_PID, openlog, syslog
 
-def log(msg)
-  syslog(LOG_INFO, msg)
+def log(msg, priority=LOG_INFO)
+  syslog(priority, msg)
+end
+
+def log_debug(msg)
+  log(msg, LOG_DEBUG)
 end
 
 def send(line)
