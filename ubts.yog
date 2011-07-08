@@ -2,6 +2,12 @@
 
 from libc.file import read, write
 
+def log(msg)
+  File.open("ubts.log", "a") do [fp]
+    fp.write(msg + "\n")
+  end
+end
+
 def send(line)
   print(line + "\r\n")
 end
@@ -20,13 +26,18 @@ def readline(line="")
   return readline(line + c)
 end
 
-def main()
+def main(dest)
+  now = Datetime.new()
+  fmt = "%Y-%m-%d_%H:%M:%S.{0:03}".format(now.microsecond // 1000)
+  dir = dest / now.strftime(fmt)
+  log(dir)
+  make_dirs(dir)
   readline()
   send("OK")
 end
 
 if __FILE__ == ARGV.get(0)
-  main()
+  main(ARGV[1].to_path())
 end
 
 # vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2

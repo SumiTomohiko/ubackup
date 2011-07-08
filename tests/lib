@@ -1,0 +1,11 @@
+
+zero_or_die()
+{
+  "$@"
+  if [ $? != 0 ]; then
+    echo "Failed: $@"
+    exit 1
+  fi
+}
+
+# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh

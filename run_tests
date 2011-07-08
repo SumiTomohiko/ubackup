@@ -1,0 +1,21 @@
+#!/bin/sh
+
+mktemp="zero_or_die mktemp -d -t"
+
+dir=$(dirname $0)
+export LIB="${dir}/tests/lib"
+. "${LIB}"
+
+zero_or_die find tests -type f -name "test_*" | while read t
+do
+  name=$(zero_or_die basename "${t}")
+  tmp_dir=$(zero_or_die mktemp -d -t $(basename "${t}"))
+  export SRC="${tmp_dir}/src"
+  export DEST="${tmp_dir}/dest"
+  zero_or_die mkdir -p "${SRC}" "${DEST}"
+  export CMD="yog ${dir}/ubtc.yog --command \"yog \\\"${dir}/ubts.yog\\\" \\\"${DEST}\\\"\""
+  sh "${t}" || echo "${t}: NG"
+  zero_or_die rm -rf "${tmp_dir}"
+done
+
+# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2

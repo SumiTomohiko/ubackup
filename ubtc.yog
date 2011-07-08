@@ -1,5 +1,7 @@
 #!/usr/local/bin/yog
 
+from optparse import OptionParser
+
 def send(fp, line)
   fp.write(line + "\r\n")
   fp.flush()
@@ -16,13 +18,22 @@ end
 
 def client_main(in, out)
   send(out, "DIR foo 644 1001 1001")
-  print(readline(in))
+  puts(readline(in))
 end
 
-def main()
-  cmd = [EXECUTABLE, "ubts.yog"]
-  #cmd = ["/bin/sh", "-c", "cat > foo.log"]
-  proc = Process.new(cmd).run()
+def parse_options(argv)
+  cmd = "ssh windsor yog ~/projects/UnnamedBackupTool/ubts.yog"
+  opt_parser = OptionParser.new()
+  opt_parser.on_option(nil, "command") do [val]
+    cmd = val
+  end
+  args = opt_parser.parse(argv)
+  return cmd, args
+end
+
+def main(argv)
+  cmd, args = parse_options(argv)
+  proc = Process.new(["/bin/sh", "-c", cmd]).run()
   try
     return client_main(proc.stdout, proc.stdin)
   finally
@@ -31,7 +42,7 @@ def main()
 end
 
 if __FILE__ == ARGV.get(0)
-  main()
+  main(ARGV.slice(1))
 end
 
 # vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2
