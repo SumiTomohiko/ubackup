@@ -10,11 +10,11 @@ zero_or_die find tests -type f -name "test_*" | while read t
 do
   name=$(zero_or_die basename "${t}")
   tmp_dir=$(zero_or_die mktemp -d -t $(basename "${t}"))
-  export SRC="${tmp_dir}/src"
-  export DEST="${tmp_dir}/dest"
-  zero_or_die mkdir -p "${SRC}" "${DEST}"
-  export CMD="yog ${dir}/ubtc.yog --command \"yog \\\"${dir}/ubts.yog\\\" \\\"${DEST}\\\"\""
-  sh "${t}" || echo "${t}: NG"
+  export SRC_DIR="${tmp_dir}/src"
+  export DEST_DIR="${tmp_dir}/dest"
+  zero_or_die mkdir -p "${SRC_DIR}" "${DEST_DIR}"
+  export CMD="yog ${dir}/ubtc.yog --command \"yog \\\"${dir}/ubts.yog\\\" \\\"${DEST_DIR}\\\"\""
+  sh ${sh_opt} "${t}" || echo "${t}: NG"
   zero_or_die rm -rf "${tmp_dir}"
 done
 
