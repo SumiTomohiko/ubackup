@@ -7,12 +7,19 @@ def send(fp, line)
   fp.flush()
 end
 
+def read_char(fp)
+  if (c = fp.read(1)) != "\r"
+    return c
+  end
+  fp.read(1)
+  return c
+end
+
 def readline(fp)
   line = ""
-  while (c = fp.read(1)) != "\r"
+  while !fp.eof? && ((c = read_char(fp)) != "\n")
     line << c
   end
-  fp.read(1)  # "\n"
   return line
 end
 
