@@ -33,8 +33,9 @@ def main(dest)
   now = Datetime.new()
   fmt = "%Y-%m-%d_%H:%M:%S.{0:03}".format(now.microsecond // 1000)
   dir = dest / now.strftime(fmt)
-  log("New directory: {0}".format(dir))
+  log("New backup: {0}".format(dir))
   make_dirs(dir)
+
   readline()
   send("OK")
 end
