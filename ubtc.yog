@@ -2,50 +2,130 @@
 
 from optparse import OptionParser
 
-def send(fp, line)
-  fp.write(line + "\r\n")
-  fp.flush()
+class BackupError > Exception
 end
 
-def read_char(fp)
-  if (c = fp.read(1)) != "\r"
-    return c
+class Client
+  def init(cmd, root, src)
+    self.cmd = cmd
+    self.root = root.to_path().abs()
+    self.src = src.map() do [dir]
+      next dir.to_path().abs()
+    end
+
+    self.in = nil
+    self.out = nil
   end
-  fp.read(1)
-  return c
-end
 
-def readline(fp)
-  line = ""
-  while !fp.eof? && ((c = read_char(fp)) != "\n")
-    line << c
+  def send(line)
+    self.out.write(line + "\r\n")
+    self.out.flush()
   end
-  return line
-end
 
-def client_main(in, out)
-  send(out, "DIR foo 644 1001 1001")
-  puts(readline(in))
+  def read_char()
+    if (c = self.in.read(1)) != "\r"
+      return c
+    end
+    self.in.read(1)
+    return "\n"
+  end
+
+  def readline()
+    line = ""
+    while !self.in.eof? && ((c = self.read_char()) != "\n")
+      line << c
+    end
+    return line
+  end
+
+  def recv_ok()
+    params = self.readline().split(max: 1)
+    if params[0] == "OK"
+      return
+    end
+    raise BackupError.new(params[1])
+  end
+
+  def send_dir(path)
+    st = path.lstat()
+    cmd = "DIR {0} {1} {2} {3}".format(path.inspect(), st.mode, st.uid, st.gid)
+    self.send(cmd)
+    self.recv_ok()
+  end
+
+  def send_symlink(path)
+    # TODO
+  end
+
+  def send_file(path)
+    # TODO
+  end
+
+  def backup_parent(dir)
+    if dir == self.root
+      return
+    end
+    self.backup_parent(dir.dirname)
+    self.send_dir(dir)
+  end
+
+  def backup_tree(dir)
+    self.backup_parent(dir)
+    dir.walk() do [path]
+      if path.dir?
+        self.send_dir(path)
+        next
+      end
+      (:
+      if path.symlink?
+        self.send_symlink(path)
+        next
+      end
+      :)
+      self.send_file(path)
+    end
+  end
+
+  def protocol_main()
+    self.src.each() do [dir]
+      self.backup_tree(dir)
+    end
+    #self.send("DIR foo 644 1001 1001")
+    #self.readline()
+  end
+
+  def run()
+    proc = Process.new(["/bin/sh", "-c", self.cmd]).run()
+    try
+      self.in = proc.stdout
+      self.out = proc.stdin
+      self.protocol_main()
+    finally
+      proc.wait()
+    end
+  end
 end
 
 def parse_options(argv)
-  cmd = "ssh windsor yog ~/projects/UnnamedBackupTool/ubts.yog"
   opt_parser = OptionParser.new()
+
+  cmd = "ssh windsor yog ~/projects/UnnamedBackupTool/ubts.yog"
   opt_parser.on_option(nil, "command") do [val]
     cmd = val
   end
+
+  root = "/"
+  opt_parser.on_option(nil, "root") do [val]
+    root = val
+  end
+
   args = opt_parser.parse(argv)
-  return cmd, args
+  return cmd, root, args
 end
 
 def main(argv)
-  cmd, args = parse_options(argv)
-  proc = Process.new(["/bin/sh", "-c", cmd]).run()
-  try
-    return client_main(proc.stdout, proc.stdin)
-  finally
-    proc.wait()
-  end
+  cmd, root, args = parse_options(argv)
+  Client.new(cmd, root, args).run()
 end
 
 if __FILE__ == ARGV.get(0)

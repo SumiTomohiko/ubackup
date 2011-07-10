@@ -5,14 +5,16 @@ from syslog import LOG_DEBUG, LOG_INFO, LOG_LOCAL0, LOG_PID, openlog, syslog
 
 def log(msg, priority=LOG_INFO)
   syslog(priority, msg)
+  return msg
 end
 
 def log_debug(msg)
-  log(msg, LOG_DEBUG)
+  return log(msg, LOG_DEBUG)
 end
 
 def send(line)
-  print(line + "\r\n")
+  print(log(line + "\r\n"))
+  STDOUT.flush()
 end
 
 def readline(line="")
@@ -36,8 +38,10 @@ def main(dest)
   log("New backup: {0}".format(dir))
   make_dirs(dir)
 
-  readline()
-  send("OK")
+  loop() do
+    req = log(readline())
+    send("OK")
+  end
 end
 
 if __FILE__ == ARGV.get(0)
