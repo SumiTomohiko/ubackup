@@ -72,15 +72,29 @@ class Client
   end
 
   def send_file(path)
-    fmt = "FILE {0} {1} {2} {3} {4}"
     s = self.get_related_path(path)
     st = path.lstat()
-    self.send(fmt.format(s.inspect(), st.mode, st.uid, st.gid, nil))
+    fmt = "FILE {0} {1} {2}"
+    line = fmt.format(s.inspect(), st.mtime.to_iso8601(), st.ctime.to_iso8601())
+    self.send(line)
     resp = self.readline()
-    if resp != "CHANGED"
+    if resp == "UNCHANGED"
       return
     end
-    self.send_body(path)
+    if resp == "BODY_META"
+      self.send_body(path)
+      self.send_meta(path)
+      return
+    end
+    if resp == "BODY"
+      self.send_body(path)
+      return
+    end
+    if resp == "META"
+      self.send_meta(path)
+      return
+    end
+    raise BackupError.new("Invalid response: {0}".format(resp))
   end
 
   def backup_parent(dir)
