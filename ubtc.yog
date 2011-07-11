@@ -109,6 +109,8 @@ class Client
       self.out = proc.stdin
       self.protocol_main()
     finally
+      self.in.close()
+      self.out.close()
       proc.wait()
     end
   end
