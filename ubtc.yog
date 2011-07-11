@@ -65,8 +65,22 @@ class Client
     # TODO
   end
 
-  def send_file(path)
+  def send_body(path)
     # TODO
+    self.send("BODY 0")
+    self.recv_ok()
+  end
+
+  def send_file(path)
+    fmt = "FILE {0} {1} {2} {3} {4}"
+    s = self.get_related_path(path)
+    st = path.lstat()
+    self.send(fmt.format(s.inspect(), st.mode, st.uid, st.gid, nil))
+    resp = self.readline()
+    if resp != "CHANGED"
+      return
+    end
+    self.send_body(path)
   end
 
   def backup_parent(dir)
