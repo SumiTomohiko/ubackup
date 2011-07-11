@@ -46,9 +46,24 @@ class Client
     raise BackupError.new(params[1])
   end
 
+  def get_related_path(path)
+    if self.root == "/"
+      return path
+    end
+    s = path.slice(self.root.size)
+    if s == ""
+      return "/"
+    end
+    return s
+  end
+
   def send_dir(path)
+    s = self.get_related_path(path)
+    if s == "/"
+      return
+    end
     st = path.lstat()
-    cmd = "DIR {0} {1} {2} {3}".format(path.inspect(), st.mode, st.uid, st.gid)
+    cmd = "DIR {0} {1} {2} {3}".format(s.inspect(), st.mode, st.uid, st.gid)
     self.send(cmd)
     self.recv_ok()
   end
