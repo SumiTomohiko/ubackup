@@ -43,7 +43,7 @@ class Client
     if params[0] == "OK"
       return
     end
-    raise BackupError.new(params[1])
+    raise BackupError.new(params.to_s())
   end
 
   def get_related_path(path)

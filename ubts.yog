@@ -3,6 +3,9 @@
 from libc.file import read, write
 from syslog import LOG_DEBUG, LOG_INFO, LOG_LOCAL0, LOG_PID, openlog, syslog
 
+class BackupError > Exception
+end
+
 def log(msg, priority=LOG_INFO)
   syslog(priority, msg)
   return msg
@@ -13,7 +16,8 @@ def log_debug(msg)
 end
 
 def send(line)
-  print(log(line + "\r\n"))
+  log("Send: {0}".format(line))
+  print(line + "\r\n")
   STDOUT.flush()
 end
 
@@ -31,6 +35,66 @@ def readline(line="")
   return readline(line + c)
 end
 
+def seek_next_param(line, pos)
+  s = line.slice(pos)
+  return (m = /\s+/.match(s)) == nil ? s : s.slice(m.end())
+end
+
+def get_next_token(line)
+  if line[0] == "\""
+    pos = 1
+    txt = ""
+    while (c = line[pos]) != "\""
+      if c == "\\"
+        txt << line[pos + 1]
+        pos += 2
+        next
+      end
+      txt << c
+      pos += 1
+    end
+    return txt, seek_next_param(line, pos + 1)
+  end
+  if (m = /(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}),(?<millisecond>\d{3})/.match(line)) != nil
+    timestamp = Datetime.new(m.group("year").to_i(), m.group("month").to_i(), m.group("day").to_i(), m.group("hour").to_i(), m.group("minute").to_i(), m.group("second").to_i(), 1000 * m.group("millisecond").to_i())
+    return timestamp, seek_next_param(line, m.end())
+  end
+  if (m = /\d+/.match(line)) != nil
+    return m.group().to_i(), seek_next_param(line, m.end())
+  end
+  raise BackupError.new("Invalid parameter: {0}".format(line))
+end
+
+def parse_file(param)
+  path, rest = get_next_token(param)
+  mtime, rest = get_next_token(rest)
+  ctime, _ = get_next_token(rest)
+  return path, mtime, ctime
+end
+
+def do_file(path, mtime, ctime)
+  send("UNCHANGED")
+  # TODO
+end
+
+def act(line)
+  if (m = line.match(/[A-Z]+/)) == nil
+    raise BackupError.new("Invalid command: {0}".format(line))
+  end
+  cmd = m.group(0)
+  if cmd == "DIR"
+    # TODO
+    send("OK")
+    return
+  end
+  if cmd == "FILE"
+    path, mtime, ctime = parse_file(seek_next_param(line, m.end()))
+    do_file(path, mtime, ctime)
+    return
+  end
+  raise BackupError.new("Unknown command: {0}".format(cmd))
+end
+
 def main(dest)
   now = Datetime.new()
   dir = dest / now.to_iso8601()
@@ -38,8 +102,9 @@ def main(dest)
   make_dirs(dir)
 
   loop() do
-    req = log(readline())
-    send("OK")
+    line = readline()
+    log("Recv: {0}".format(line))
+    act(line)
   end
 end
 
