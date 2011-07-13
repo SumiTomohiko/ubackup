@@ -65,36 +65,34 @@ class Client
     # TODO
   end
 
-  def send_body(path)
-    # TODO
-    self.send("BODY 0")
+  def send_body(fp, size)
+    self.send("BODY {0}".format(size))
+    rest = size
+    while 0 < rest
+      data = fp.read_binary(4096)
+      self.out.write(data)
+      self.out.flush()
+      rest -= data.size
+    end
     self.recv_ok()
   end
 
   def send_file(path)
-    s = self.get_related_path(path)
-    st = path.lstat()
-    fmt = "FILE {0} {1} {2}"
-    line = fmt.format(s.inspect(), st.mtime.to_iso8601(), st.ctime.to_iso8601())
-    self.send(line)
-    resp = self.readline()
-    if resp == "UNCHANGED"
-      return
+    File.open(path) do [fp]
+      fp.lock_shared() do [fp]
+        s = self.get_related_path(path)
+        st = path.lstat()
+        fmt = "FILE {0} {1} {2} {3} {4}"
+        mtime = st.mtime.to_iso8601()
+        line = fmt.format(s.inspect(), st.mode, st.uid, st.gid, mtime)
+        self.send(line)
+        resp = self.readline()
+        if resp == "UNCHANGED"
+          return
+        end
+        self.send_body(fp, st.size)
+      end
     end
-    if resp == "BODY_META"
-      self.send_body(path)
-      self.send_meta(path)
-      return
-    end
-    if resp == "BODY"
-      self.send_body(path)
-      return
-    end
-    if resp == "META"
-      self.send_meta(path)
-      return
-    end
-    raise BackupError.new("Invalid response: {0}".format(resp))
   end
 
   def backup_parent(dir)
@@ -126,8 +124,6 @@ class Client
     self.src.each() do [dir]
       self.backup_tree(dir)
     end
-    #self.send("DIR foo 644 1001 1001")
-    #self.readline()
   end
 
   def run()

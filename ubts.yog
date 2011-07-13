@@ -67,50 +67,79 @@ end
 
 def parse_file(param)
   path, rest = get_next_token(param)
-  mtime, rest = get_next_token(rest)
-  ctime, _ = get_next_token(rest)
-  return path, mtime, ctime
+  mode, rest = get_next_token(rest)
+  uid, rest = get_next_token(rest)
+  gid, rest = get_next_token(rest)
+  mtime, _ = get_next_token(rest)
+  return path, mode, uid, gid, mtime
 end
 
-def do_file(path, mtime, ctime)
-  send("UNCHANGED")
-  # TODO
-end
-
-def act(line)
-  if (m = line.match(/[A-Z]+/)) == nil
-    raise BackupError.new("Invalid command: {0}".format(line))
+class Server
+  def init(dest)
+    self.dest = dest
+    self.path = nil
   end
-  cmd = m.group(0)
-  if cmd == "DIR"
+
+  def run()
+    dir = self.dest / Datetime.new().to_iso8601()
+    log("New backup: {0}".format(dir))
+    make_dirs(dir)
+
+    loop() do
+      line = readline()
+      log("Recv: {0}".format(line))
+      self.act(dir, line)
+    end
+  end
+
+  def do_file(path, mode, uid, gid, mtime)
     # TODO
+    send("CHANGED")
+    self.path = path
+  end
+
+  def do_body(dir, size)
+    path = dir / self.path
+    log("Write: {0}".format(path))
+    File.open(path, "w") do [fp]
+      rest = size
+      while 0 < rest
+        data = STDIN.read_binary(4096)
+        fp.write(data)
+        rest -= data.size
+      end
+    end
     send("OK")
-    return
   end
-  if cmd == "FILE"
-    path, mtime, ctime = parse_file(seek_next_param(line, m.end()))
-    do_file(path, mtime, ctime)
-    return
-  end
-  raise BackupError.new("Unknown command: {0}".format(cmd))
-end
 
-def main(dest)
-  now = Datetime.new()
-  dir = dest / now.to_iso8601()
-  log("New backup: {0}".format(dir))
-  make_dirs(dir)
-
-  loop() do
-    line = readline()
-    log("Recv: {0}".format(line))
-    act(line)
+  def act(dir, line)
+    if (m = line.match(/[A-Z]+/)) == nil
+      raise BackupError.new("Invalid command: {0}".format(line))
+    end
+    cmd = m.group(0)
+    if cmd == "DIR"
+      # TODO
+      send("OK")
+      return
+    end
+    if cmd == "FILE"
+      path, mode, uid, gid, mtime = parse_file(seek_next_param(line, m.end()))
+      self.do_file(path, mode, uid, gid, mtime)
+      return
+    end
+    if cmd == "BODY"
+      self.do_body(dir, seek_next_param(line, m.end()).to_i())
+      return
+    end
+    msg = "Unknown command: {0}".format(cmd)
+    log(msg)
+    raise BackupError.new(msg)
   end
 end
 
 if __FILE__ == ARGV.get(0)
   openlog(ARGV[0], LOG_PID, LOG_LOCAL0) do
-    main(ARGV[1].to_path())
+    Server.new(ARGV[1].to_path()).run()
   end
 end
 
