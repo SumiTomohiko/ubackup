@@ -4,6 +4,11 @@ if [ "$1" = "-d" ]; then
   sh_opt="-x"
   shift
 fi
+pattern="test_*"
+if [ "$1" != "" ]; then
+  pattern="$1"
+  shift
+fi
 
 mktemp="zero_or_die mktemp -d -t"
 
@@ -11,7 +16,7 @@ dir=$(dirname $0)
 export LIB="${dir}/tests/lib"
 . "${LIB}"
 
-zero_or_die find tests -type f -name "test_*" | while read t
+zero_or_die find tests -type f -name "${pattern}" | while read t
 do
   name=$(zero_or_die basename "${t}")
   tmp_dir=$(zero_or_die mktemp -d -t $(zero_or_die basename "${t}"))
