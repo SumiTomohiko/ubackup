@@ -56,7 +56,8 @@ class Client
       return
     end
     st = path.lstat()
-    cmd = "DIR {0} {1} {2} {3}".format(s.inspect(), st.mode, st.uid, st.gid)
+    mode = st.mode.to_s(8)
+    cmd = "DIR {0} {1} {2} {3}".format(s.inspect(), mode, st.uid, st.gid)
     self.send(cmd)
     self.recv_ok()
   end

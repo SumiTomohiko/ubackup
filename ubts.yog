@@ -65,6 +65,15 @@ def parse_datetime(s)
   return Datetime.new(m.group("year").to_i(), m.group("month").to_i(), m.group("day").to_i(), m.group("hour").to_i(), m.group("minute").to_i(), m.group("second").to_i(), 1000 * m.group("millisecond").to_i())
 end
 
+def parse_dir(param)
+  path, rest = get_text_token(param)
+  params = rest.split()
+  mode = params[0].as_oct()
+  uid = params[1].as_dec()
+  gid = params[2].as_dec()
+  return path.to_path(), mode, uid, gid
+end
+
 def parse_file(param)
   path, rest = get_text_token(param)
   params = rest.split()
@@ -97,6 +106,11 @@ class Server
   def touch(path)
     File.open(path, "w") do
     end
+  end
+
+  def do_dir(dir, path, mode, uid, gid)
+    make_dirs(dir / path)
+    send("OK")
   end
 
   def do_file(dir, path, mode, uid, gid, mtime)
@@ -136,8 +150,8 @@ class Server
     end
     cmd = m.group(0)
     if cmd == "DIR"
-      # TODO
-      send("OK")
+      path, mode, uid, gid = parse_dir(seek_next_param(line, m.end()))
+      self.do_dir(dir, path, mode, uid, gid)
       return
     end
     if cmd == "FILE"
