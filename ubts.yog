@@ -74,6 +74,29 @@ def parse_dir(param)
   return path.to_path(), mode, uid, gid
 end
 
+def get_decimal_token(s)
+  if (m = /[0-9]+/.match(s)) == nil
+    raise SyntaxError.new(s)
+  end
+  return m.group().as_dec(), seek_next_param(s, m.end())
+end
+
+def get_octal_token(s)
+  if (m = /[0-7]+/.match(s)) == nil
+    raise SyntaxError.new(s)
+  end
+  return m.group().as_oct(), seek_next_param(s, m.end())
+end
+
+def parse_symlink(param)
+  path, rest = get_text_token(param)
+  mode, rest = get_octal_token(rest)
+  uid, rest = get_decimal_token(rest)
+  gid, rest = get_decimal_token(rest)
+  src, _ = get_text_token(rest)
+  return path.to_path(), mode, uid, gid, src.to_path()
+end
+
 def parse_file(param)
   path, rest = get_text_token(param)
   params = rest.split()
@@ -159,6 +182,14 @@ class Server
     end
   end
 
+  def do_symlink(dir, path, mode, uid, gid, src)
+    self.backup_meta_data(dir, path, mode, uid, gid)
+    dest = dir / path
+    log("Symlink: {0} -> {1}".format(dest, src))
+    dest.symlink_to(src)
+    send("OK")
+  end
+
   def do_file(dir, prev_dir, path, mode, uid, gid, mtime)
     self.backup_meta_data(dir, path, mode, uid, gid)
 
@@ -204,6 +235,11 @@ class Server
     end
     if cmd == "BODY"
       self.do_body(dir, seek_next_param(line, m.end()).to_i())
+      return
+    end
+    if cmd == "SYMLINK"
+      path, mode, uid, gid, src = parse_symlink(seek_next_param(line, m.end()))
+      self.do_symlink(dir, path, mode, uid, gid, src)
       return
     end
     msg = "Unknown command: {0}".format(cmd)

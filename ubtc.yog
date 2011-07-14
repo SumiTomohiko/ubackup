@@ -63,7 +63,13 @@ class Client
   end
 
   def send_symlink(path)
-    # TODO
+    s = self.get_related_path(path)
+    fmt = "SYMLINK {0} {1} {2} {3} {4}"
+    st = path.lstat()
+    mode = st.mode.to_s(8)
+    src = path.readlink()
+    self.send(fmt.format(s.inspect(), mode, st.uid, st.gid, src.inspect()))
+    self.recv_ok()
   end
 
   def send_body(fp, size)
@@ -111,12 +117,10 @@ class Client
         self.send_dir(path)
         next
       end
-      (:
       if path.symlink?
         self.send_symlink(path)
         next
       end
-      :)
       self.send_file(path)
     end
   end
