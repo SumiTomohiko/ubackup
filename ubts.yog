@@ -94,7 +94,7 @@ class Server
     make_dirs(self.dest / "meta")
     dir = self.dest / Datetime.new().to_iso8601()
     log("New backup: {0}".format(dir))
-    make_dirs(dir / ".meta")
+    self.make_meta_dir(dir)
 
     loop() do
       line = readline()
@@ -103,27 +103,36 @@ class Server
     end
   end
 
+  def make_meta_dir(dir)
+    make_dirs(dir / ".meta")
+  end
+
   def touch(path)
     File.open(path, "w") do
     end
   end
 
-  def do_dir(dir, path, mode, uid, gid)
-    make_dirs(dir / path)
-    send("OK")
-  end
-
-  def do_file(dir, path, mode, uid, gid, mtime)
+  def backup_meta_data(dir, path, mode, uid, gid)
     meta = dir / path.dirname / ".meta" / (path.basename + ".meta")
     src = self.dest / "meta" / "{0}-{1}-{2}".format(mode.to_s(8), uid, gid)
     log("Meta file: {0} -> {1}".format(meta, src))
-
     try
       meta.link_to(src)
     except SystemError
       self.touch(src)
       meta.link_to(src)
     end
+  end
+
+  def do_dir(dir, path, mode, uid, gid)
+    self.backup_meta_data(dir, path, mode, uid, gid)
+    self.make_meta_dir(dir / path)
+    make_dirs(dir / path)
+    send("OK")
+  end
+
+  def do_file(dir, path, mode, uid, gid, mtime)
+    self.backup_meta_data(dir, path, mode, uid, gid)
 
     # TODO
     send("CHANGED")

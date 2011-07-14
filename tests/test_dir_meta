@@ -1,0 +1,18 @@
+
+. "${LIB}"
+
+name="foo"
+src="${SRC_DIR}/${name}"
+zero_or_die mkdir -p "${src}"
+uid=`ls -dnl ${src} | awk '{ print \$3 }'`
+gid=`ls -dnl ${src} | awk '{ print \$4 }'`
+meta="755-${uid}-${gid}"
+
+eval ${CMD} "${SRC_DIR}"
+get_inode_num="cut -f 1 -d ' '"
+ino1=`ls -i "${DEST_DIR}/meta/${meta}" | cut -f 1 -d ' '`
+meta_path="${DEST_DIR}/*/.meta/${name}.meta"
+ino2=`ls -i ${meta_path} | cut -f 1 -d ' '`
+test \( ! -z "${ino1}" \) -a \( "${ino1}" = "${ino2}" \)
+
+# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh
