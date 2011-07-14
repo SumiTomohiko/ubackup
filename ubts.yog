@@ -142,7 +142,9 @@ class Server
     loop() do
       line = readline()
       log("Recv: {0}".format(line))
-      self.act(dir, prev_dir, line)
+      if !self.act(dir, prev_dir, line)
+        return
+      end
     end
   end
 
@@ -219,28 +221,31 @@ class Server
   end
 
   def act(dir, prev_dir, line)
-    if (m = line.match(/[A-Z]+/)) == nil
+    if (m = line.match(/[A-Z_]+/)) == nil
       raise BackupError.new("Invalid command: {0}".format(line))
     end
     cmd = m.group(0)
     if cmd == "DIR"
       path, mode, uid, gid = parse_dir(seek_next_param(line, m.end()))
       self.do_dir(dir, path, mode, uid, gid)
-      return
+      return true
     end
     if cmd == "FILE"
       path, mode, uid, gid, mtime = parse_file(seek_next_param(line, m.end()))
       self.do_file(dir, prev_dir, path, mode, uid, gid, mtime)
-      return
+      return true
     end
     if cmd == "BODY"
       self.do_body(dir, seek_next_param(line, m.end()).to_i())
-      return
+      return true
     end
     if cmd == "SYMLINK"
       path, mode, uid, gid, src = parse_symlink(seek_next_param(line, m.end()))
       self.do_symlink(dir, path, mode, uid, gid, src)
-      return
+      return true
+    end
+    if cmd == "THANK_YOU"
+      return false
     end
     msg = "Unknown command: {0}".format(cmd)
     log(msg)
