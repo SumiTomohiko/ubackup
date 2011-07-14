@@ -84,7 +84,7 @@ class Client
         st = path.lstat()
         fmt = "FILE {0} {1} {2} {3} {4}"
         mtime = st.mtime.to_iso8601()
-        line = fmt.format(s.inspect(), st.mode, st.uid, st.gid, mtime)
+        line = fmt.format(s.inspect(), st.mode.to_s(8), st.uid, st.gid, mtime)
         self.send(line)
         resp = self.readline()
         if resp == "UNCHANGED"

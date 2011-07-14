@@ -40,38 +40,39 @@ def seek_next_param(line, pos)
   return (m = /\s+/.match(s)) == nil ? s : s.slice(m.end())
 end
 
-def get_next_token(line)
-  if line[0] == "\""
-    pos = 1
-    txt = ""
-    while (c = line[pos]) != "\""
-      if c == "\\"
-        txt << line[pos + 1]
-        pos += 2
-        next
-      end
-      txt << c
-      pos += 1
+def get_text_token(line)
+  if line[0] != "\""
+    raise SyntaxError.new(line)
+  end
+  pos = 1
+  txt = ""
+  while (c = line[pos]) != "\""
+    if c == "\\"
+      txt << line[pos + 1]
+      pos += 2
+      next
     end
-    return txt, seek_next_param(line, pos + 1)
+    txt << c
+    pos += 1
   end
-  if (m = /(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}),(?<millisecond>\d{3})/.match(line)) != nil
-    timestamp = Datetime.new(m.group("year").to_i(), m.group("month").to_i(), m.group("day").to_i(), m.group("hour").to_i(), m.group("minute").to_i(), m.group("second").to_i(), 1000 * m.group("millisecond").to_i())
-    return timestamp, seek_next_param(line, m.end())
+  return txt, seek_next_param(line, pos + 1)
+end
+
+def parse_datetime(s)
+  if (m = /(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}),(?<millisecond>\d{3})/.match(s)) == nil
+    raise SyntaxError.new(s)
   end
-  if (m = /\d+/.match(line)) != nil
-    return m.group().to_i(), seek_next_param(line, m.end())
-  end
-  raise BackupError.new("Invalid parameter: {0}".format(line))
+  return Datetime.new(m.group("year").to_i(), m.group("month").to_i(), m.group("day").to_i(), m.group("hour").to_i(), m.group("minute").to_i(), m.group("second").to_i(), 1000 * m.group("millisecond").to_i())
 end
 
 def parse_file(param)
-  path, rest = get_next_token(param)
-  mode, rest = get_next_token(rest)
-  uid, rest = get_next_token(rest)
-  gid, rest = get_next_token(rest)
-  mtime, _ = get_next_token(rest)
-  return path, mode, uid, gid, mtime
+  path, rest = get_text_token(param)
+  params = rest.split()
+  mode = params[0].as_oct()
+  uid = params[1].as_dec()
+  gid = params[2].as_dec()
+  mtime = parse_datetime(params[3])
+  return path.to_path(), mode, uid, gid, mtime
 end
 
 class Server
@@ -81,9 +82,10 @@ class Server
   end
 
   def run()
+    make_dirs(self.dest / "meta")
     dir = self.dest / Datetime.new().to_iso8601()
     log("New backup: {0}".format(dir))
-    make_dirs(dir)
+    make_dirs(dir / ".meta")
 
     loop() do
       line = readline()
@@ -92,7 +94,23 @@ class Server
     end
   end
 
-  def do_file(path, mode, uid, gid, mtime)
+  def touch(path)
+    File.open(path, "w") do
+    end
+  end
+
+  def do_file(dir, path, mode, uid, gid, mtime)
+    meta = dir / path.dirname / ".meta" / (path.basename + ".meta")
+    src = self.dest / "meta" / "{0}-{1}-{2}".format(mode.to_s(8), uid, gid)
+    log("Meta file: {0} -> {1}".format(meta, src))
+
+    try
+      meta.link_to(src)
+    except SystemError
+      self.touch(src)
+      meta.link_to(src)
+    end
+
     # TODO
     send("CHANGED")
     self.path = path
@@ -124,7 +142,7 @@ class Server
     end
     if cmd == "FILE"
       path, mode, uid, gid, mtime = parse_file(seek_next_param(line, m.end()))
-      self.do_file(path, mode, uid, gid, mtime)
+      self.do_file(dir, path, mode, uid, gid, mtime)
       return
     end
     if cmd == "BODY"
