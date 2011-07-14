@@ -60,7 +60,7 @@ end
 
 def parse_datetime(s)
   if (m = /(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}),(?<millisecond>\d{3})/.match(s)) == nil
-    raise SyntaxError.new(s)
+    return nil
   end
   return Datetime.new(m.group("year").to_i(), m.group("month").to_i(), m.group("day").to_i(), m.group("hour").to_i(), m.group("minute").to_i(), m.group("second").to_i(), 1000 * m.group("millisecond").to_i())
 end
@@ -90,16 +90,36 @@ class Server
     self.path = nil
   end
 
+  def get_prev_dir(path)
+    Dir.open(path) do [dir]
+      latest = Datetime.new(1970, 1, 1, 0, 0, 0, 0)
+      dir.each() do [name]
+        timestamp = parse_datetime(name)
+        if (timestamp != nil) && (latest < timestamp)
+          latest = timestamp
+        end
+      end
+      return path / latest.to_iso8601()
+    end
+  end
+
+  def make_new_dir(dir)
+    path = dir / Datetime.new().to_iso8601()
+    log("New backup: {0}".format(path))
+    self.make_meta_dir(path)
+    return path
+  end
+
   def run()
     make_dirs(self.dest / "meta")
-    dir = self.dest / Datetime.new().to_iso8601()
-    log("New backup: {0}".format(dir))
-    self.make_meta_dir(dir)
+
+    prev_dir = self.get_prev_dir(self.dest)
+    dir = self.make_new_dir(self.dest)
 
     loop() do
       line = readline()
       log("Recv: {0}".format(line))
-      self.act(dir, line)
+      self.act(dir, prev_dir, line)
     end
   end
 
@@ -131,12 +151,25 @@ class Server
     send("OK")
   end
 
-  def do_file(dir, path, mode, uid, gid, mtime)
+  def get_prev_mtime(path)
+    try
+      return path.lstat().mtime
+    except SystemError
+      return Datetime.new(1970, 1, 1, 0, 0, 0, 0)
+    end
+  end
+
+  def do_file(dir, prev_dir, path, mode, uid, gid, mtime)
     self.backup_meta_data(dir, path, mode, uid, gid)
 
-    # TODO
-    send("CHANGED")
-    self.path = path
+    prev_path = prev_dir / path
+    if self.get_prev_mtime(prev_path) < mtime
+      self.path = path
+      send("CHANGED")
+      return
+    end
+    (dir / path).link_to(prev_path)
+    send("UNCHANGED")
   end
 
   def do_body(dir, size)
@@ -145,7 +178,8 @@ class Server
     File.open(path, "w") do [fp]
       rest = size
       while 0 < rest
-        data = STDIN.read_binary(4096)
+        max = 4096
+        data = STDIN.read_binary(max < rest ? max : rest)
         fp.write(data)
         rest -= data.size
       end
@@ -153,7 +187,7 @@ class Server
     send("OK")
   end
 
-  def act(dir, line)
+  def act(dir, prev_dir, line)
     if (m = line.match(/[A-Z]+/)) == nil
       raise BackupError.new("Invalid command: {0}".format(line))
     end
@@ -165,7 +199,7 @@ class Server
     end
     if cmd == "FILE"
       path, mode, uid, gid, mtime = parse_file(seek_next_param(line, m.end()))
-      self.do_file(dir, path, mode, uid, gid, mtime)
+      self.do_file(dir, prev_dir, path, mode, uid, gid, mtime)
       return
     end
     if cmd == "BODY"

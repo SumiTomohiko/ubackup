@@ -1,0 +1,18 @@
+--- !ditz.rubyforge.org,2008-03-06/issue 
+title: Remove sleep(1) in test_change
+desc: ""
+type: :task
+component: test
+release: 
+reporter: Tomohiko Sumi <SumiTomohiko@neko-daisuki.ddo.jp>
+status: :unstarted
+disposition: 
+creation_time: 2011-07-14 03:44:24.715029 Z
+references: []
+
+id: 34eb05e70d32de8e9aa61addabd5b5499a12f63e
+log_events: 
+- - 2011-07-14 03:44:25.349494 Z
+  - Tomohiko Sumi <SumiTomohiko@neko-daisuki.ddo.jp>
+  - created
+  - ""

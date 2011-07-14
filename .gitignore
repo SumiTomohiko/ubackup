@@ -1,3 +1,4 @@
 *.core
 *.log
+.ditz-config
 .gdb_history
