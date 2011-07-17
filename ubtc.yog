@@ -139,6 +139,7 @@ class Client
       self.out = proc.stdin
       self.protocol_main()
     finally
+      print(proc.stderr.read())
       proc.wait()
       proc.stdin.close()
       proc.stdout.close()
