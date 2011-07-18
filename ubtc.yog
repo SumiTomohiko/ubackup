@@ -116,19 +116,29 @@ class Client
     self.send_dir(dir)
   end
 
-  def backup_tree(dir)
-    self.backup_parent(dir)
-    dir.walk() do [path]
-      if path.dir?
-        self.send_dir(path)
-        next
-      end
-      if path.symlink?
-        self.send_symlink(path)
-        next
-      end
-      self.send_file(path)
+  def backup_tree(path)
+    if path != self.root
+      self.backup_parent(path.dirname)
     end
+    if path.symlink?
+      self.send_symlink(path)
+      return
+    end
+    if path.dir?
+      path.walk() do [s]
+        if s.dir?
+          self.send_dir(s)
+          next
+        end
+        if s.symlink?
+          self.send_symlink(s)
+          next
+        end
+        self.send_file(s)
+      end
+      return
+    end
+    self.send_file(path)
   end
 
   def protocol_main()

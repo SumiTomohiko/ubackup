@@ -1,0 +1,11 @@
+
+. "${LIB}"
+
+src="usr/src/sys"
+name="sys"
+sym="${SRC_DIR}/${name}"
+zero_or_die ln -s usr/src/sys "${sym}"
+eval ${CMD} "${sym}"
+test `readlink ${DEST_DIR}/*/${name}` = "${src}"
+
+# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh
