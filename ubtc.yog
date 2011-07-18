@@ -47,7 +47,13 @@ class Client
   end
 
   def get_related_path(path)
-    return self.root == "/" ? path : path.slice(self.root.size)
+    if self.root == "/"
+      return path
+    end
+    s = path.slice(self.root.size)
+    # FIXME: s.to_path() is for avoiding a bug in which String#slice cannot
+    # return a Path instance.
+    return s.size == 0 ? "/".to_path() : s.to_path()
   end
 
   def send_dir(path)
