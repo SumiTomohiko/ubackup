@@ -158,7 +158,7 @@ class Server
   end
 
   def backup_meta_data(dir, path, mode, uid, gid)
-    meta = dir / path.dirname / ".meta" / (path.basename + ".meta")
+    meta = dir + (path.dirname / ".meta" / (path.basename + ".meta"))
     src = self.dest / "meta" / "{0}-{1}-{2}".format(mode.to_s(8), uid, gid)
     log("Meta file: {0} -> {1}".format(meta, src))
     try
@@ -171,8 +171,9 @@ class Server
 
   def do_dir(dir, path, mode, uid, gid)
     self.backup_meta_data(dir, path, mode, uid, gid)
-    self.make_meta_dir(dir / path)
-    make_dirs(dir / path)
+    s = dir + path
+    self.make_meta_dir(s)
+    make_dirs(s)
     send("OK")
   end
 
@@ -186,7 +187,7 @@ class Server
 
   def do_symlink(dir, path, mode, uid, gid, src)
     self.backup_meta_data(dir, path, mode, uid, gid)
-    dest = dir / path
+    dest = dir + path
     log("Symlink: {0} -> {1}".format(dest, src))
     dest.symlink_to(src)
     send("OK")
@@ -195,18 +196,18 @@ class Server
   def do_file(dir, prev_dir, path, mode, uid, gid, mtime)
     self.backup_meta_data(dir, path, mode, uid, gid)
 
-    prev_path = prev_dir / path
+    prev_path = prev_dir + path
     if self.get_prev_mtime(prev_path) < mtime
       self.path = path
       send("CHANGED")
       return
     end
-    (dir / path).link_to(prev_path)
+    (dir + path).link_to(prev_path)
     send("UNCHANGED")
   end
 
   def do_body(dir, size)
-    path = dir / self.path
+    path = dir + self.path
     log("Write: {0}".format(path))
     File.open(path, "w") do [fp]
       rest = size
