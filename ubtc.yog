@@ -47,7 +47,7 @@ class Client
   end
 
   def get_related_path(path)
-    return (s = path.slice(self.root.size)) == "" ? "/" : s
+    return self.root == "/" ? path : path.slice(self.root.size)
   end
 
   def send_dir(path)
