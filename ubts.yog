@@ -157,9 +157,21 @@ class Server
     end
   end
 
+  def exist?(path)
+    try
+      path.lstat()
+    except SystemError
+      return false
+    end
+    return true
+  end
+
   def backup_meta_data(dir, path, mode, uid, gid)
     meta = dir + (path.dirname / ".meta" / (path.basename + ".meta"))
     src = self.dest / "meta" / "{0}-{1}-{2}".format(mode.to_s(8), uid, gid)
+    if self.exist?(src)
+      return
+    end
     log("Meta file: {0} -> {1}".format(meta, src))
     try
       meta.link_to(src)
