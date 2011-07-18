@@ -144,6 +144,9 @@ class Client
       self.in = proc.stdout
       self.out = proc.stdin
       self.protocol_main()
+    except Exception as e
+      proc.kill_term()
+      raise e
     finally
       print(proc.stderr.read())
       proc.wait()
