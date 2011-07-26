@@ -24,6 +24,17 @@ print_error(const char* fmt, ...)
     fprintf(stderr, "\n");
 }
 
+static void
+print_errno(const char* msg, int e, const char* info)
+{
+    const char* s = strerror(e);
+    if (info == NULL) {
+        print_error("%s - %s", msg, s);
+        return;
+    }
+    print_error("%s - %s - %s", msg, s, info);
+}
+
 struct Server {
     char dest_dir[PATH_SIZE];
     char current_file[PATH_SIZE];
@@ -71,6 +82,18 @@ struct Command {
 
 typedef struct Command Command;
 
+static void
+send(const char* msg)
+{
+    printf("%s\r\n", msg);
+}
+
+static void
+send_ok()
+{
+    send("OK");
+}
+
 static bool
 do_dir(const Server* server, const Command* cmd)
 {
@@ -78,9 +101,10 @@ do_dir(const Server* server, const Command* cmd)
     char buf[size];
     snprintf(buf, size, "%s%s", server->dest_dir, cmd->u.dir.path);
     if (mkdir(buf, 0755) != 0) {
-        print_error("mkdir failed - %s - %s", strerror(errno), buf);
+        print_errno("mkdir failed", errno, buf);
         return false;
     }
+    send_ok();
     return true;
 }
 
@@ -89,8 +113,16 @@ do_dir(const Server* server, const Command* cmd)
 static bool
 do_file(Server* server, const Command* cmd)
 {
-    char* dest = server->current_file;
-    snprintf(dest, PATH_SIZE, "%s/%s", server->dest_dir, cmd->u.file.path);
+    char* path = server->current_file;
+    snprintf(path, PATH_SIZE, "%s/%s", server->dest_dir, cmd->u.file.path);
+
+    struct stat sb;
+    if (lstat(path, &sb) != 0) {
+        print_errno("lstat failed", errno, path);
+        return false;
+    }
+    const char* msg = sb.st_mtime < cmd->u.file.mtime ? "CHANGED" : "UNCHANGED";
+    send(msg);
     return true;
 }
 
@@ -100,7 +132,7 @@ do_body(const Server* server, const Command* cmd)
     const char* path = server->current_file;
     FILE* fp = fopen(path, "w");
     if (fp == NULL) {
-        print_error("Cannot open %s", path);
+        print_errno("fopen failed", errno, path);
         return false;
     }
     size_t rest = cmd->u.body.size;
@@ -112,6 +144,8 @@ do_body(const Server* server, const Command* cmd)
         rest -= nbytes;
     }
     fclose(fp);
+
+    send_ok();
     return true;
 }
 
@@ -119,6 +153,7 @@ static bool
 do_symlink(const Server* server, const Command* cmd)
 {
     /* TODO */
+    send_ok();
     return true;
 }
 
@@ -378,6 +413,49 @@ run_command(Server* server, const char* line)
     return false;
 }
 
+static bool
+make_timestamp(char* dest, size_t maxsize)
+{
+    struct timeval tv;
+    if (gettimeofday(&tv, NULL) != 0) {
+        print_errno("gettimeofday failed", errno, NULL);
+        return false;
+    }
+    struct tm tm;
+    localtime_r(&tv.tv_sec, &tm);
+    strftime(dest, maxsize, "%Y-%m-%dT%H:%M:%S", &tm);
+    char millisecond[5];
+    sprintf(millisecond, ".%03lu", tv.tv_usec / 1000);
+    strcat(dest, millisecond);
+    return true;
+}
+
+static bool
+do_mkdir(const char* path)
+{
+    if (mkdir(path, 0755) != 0) {
+        print_errno("mkdir failed", errno, path);
+        return false;
+    }
+    return true;
+}
+
+#define META_DIR ".meta"
+
+static bool
+make_metadir(const char* path)
+{
+    char buf[strlen(path) + strlen(META_DIR) + 1];
+    sprintf(buf, "%s/%s", path, META_DIR);
+    return do_mkdir(buf);
+}
+
+static bool
+make_backup_dir(const char* path)
+{
+    return do_mkdir(path) && make_metadir(path);
+}
+
 int
 main(int argc, const char* argv[])
 {
@@ -388,9 +466,19 @@ main(int argc, const char* argv[])
     }
     openlog(ident, LOG_PID, LOG_LOCAL0);
 
+    size_t maxsize = strlen("yyyy-mm-ddThh:nn:ss.000");
+    char timestamp[maxsize + 1];
+    if (!make_timestamp(timestamp, maxsize)) {
+        return 1;
+    }
+
     Server server;
-    strcat(server.dest_dir, argv[1]);
-    strcat(server.current_file, "");
+    sprintf(server.dest_dir, "%s/%s", argv[1], timestamp);
+    server.current_file[0] = '\0';
+    syslog(LOG_INFO, "New backup: %s", server.dest_dir);
+    if (!make_backup_dir(server.dest_dir)) {
+        return 1;
+    }
 
     size_t size = 4096;
     char buf[size];
@@ -403,7 +491,7 @@ main(int argc, const char* argv[])
 
     closelog();
 
-    return status;
+    return status ? 0 : 1;
 }
 
 /**
