@@ -60,8 +60,9 @@ typedef struct Command Command;
 static int
 do_dir(const Command* cmd)
 {
-    char buf[4096];
-    sprintf(buf, "%s%s", dest_dir, cmd->u.dir.path);
+    size_t size = 4096;
+    char buf[size];
+    snprintf(buf, size, "%s%s", dest_dir, cmd->u.dir.path);
     if (mkdir(buf, 0755) != 0) {
         fprintf(stderr, "mkdir failed - %s - %s", strerror(errno), buf);
         return 1;
@@ -133,14 +134,26 @@ get_type_of_name(Type* type, const char* name, Name2Type* n2t)
     return true;
 }
 
+static void
+skip(const char** p, int (*pred)(int))
+{
+    while (!pred(**p)) {
+        (*p)++;
+    }
+}
+
+static void
+skip_whitespace(const char** p)
+{
+    skip(p, isblank);
+}
+
 static int
 parse_type(Type* type, const char** p)
 {
-    const char* q = *p;
-    while (!isblank(*q)) {
-        q++;
-    }
-    size_t size = q - *p;
+    const char* from = *p;
+    skip_whitespace(p);
+    size_t size = *p - from;
     char name[size + 1];
     memcpy(name, p, size);
     name[size] = '\0';
@@ -159,16 +172,13 @@ parse_type(Type* type, const char** p)
         return 1;
     }
 
-    *p = q;
     return 0;
 }
 
-static void
-skip_whitespace(const char** p)
+static int
+isoctal(int c)
 {
-    while (isblank(**p)) {
-        (*p)++;
-    }
+    return ('0' <= c) && (c < '8');
 }
 
 static int
@@ -177,9 +187,7 @@ parse_mode(mode_t* dest, const char** p)
     skip_whitespace(p);
 
     const char* from = *p;
-    while (('0' <= **p) && (**p < '8')) {
-        (*p)++;
-    }
+    skip(p, isoctal);
     size_t size = *p - from;
     char buf[size + 1];
     memcpy(buf, from, size);
@@ -194,9 +202,7 @@ parse_decimal(size_t* dest, const char** p)
     skip_whitespace(p);
 
     const char* from = *p;
-    while (isdigit(**p)) {
-        (*p)++;
-    }
+    skip(p, isdigit);
     size_t size = *p - from;
     char buf[size + 1];
     memcpy(buf, from, size);
