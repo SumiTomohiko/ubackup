@@ -1,0 +1,26 @@
+#                                               -*- Autoconf -*-
+# Process this file with autoconf to produce a configure script.
+
+AC_PREREQ([2.68])
+AC_INIT([UnnamedBackupTool], [0.0.1], [SumiTomohiko@neko-daisuki.ddo.jp])
+AM_INIT_AUTOMAKE([dist-bzip2])
+AC_CONFIG_SRCDIR([ubtc.c])
+AC_CONFIG_HEADERS([config.h])
+
+# Checks for programs.
+AC_PROG_CC
+AM_PROG_CC_C_O
+
+# Checks for libraries.
+
+# Checks for header files.
+AC_CHECK_HEADERS([string.h unistd.h])
+
+# Checks for typedefs, structures, and compiler characteristics.
+AC_TYPE_SIZE_T
+
+# Checks for library functions.
+AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
+
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
