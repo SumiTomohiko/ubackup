@@ -14,8 +14,22 @@
 
 #define PATH_SIZE 4096
 
-static const char* dest_dir = "/backup/nymphenburg";
-static char current_file[PATH_SIZE];
+static void
+print_error(const char* fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+    fprintf(stderr, "\n");
+}
+
+struct Server {
+    char dest_dir[PATH_SIZE];
+    char current_file[PATH_SIZE];
+};
+
+typedef struct Server Server;
 
 enum Type {
     CMD_BODY,
@@ -58,13 +72,13 @@ struct Command {
 typedef struct Command Command;
 
 static int
-do_dir(const Command* cmd)
+do_dir(const Server* server, const Command* cmd)
 {
     size_t size = 4096;
     char buf[size];
-    snprintf(buf, size, "%s%s", dest_dir, cmd->u.dir.path);
+    snprintf(buf, size, "%s%s", server->dest_dir, cmd->u.dir.path);
     if (mkdir(buf, 0755) != 0) {
-        fprintf(stderr, "mkdir failed - %s - %s", strerror(errno), buf);
+        print_error("mkdir failed - %s - %s", strerror(errno), buf);
         return 1;
     }
     return 0;
@@ -73,19 +87,20 @@ do_dir(const Command* cmd)
 #define array_sizeof(a) (sizeof(a) / sizeof(a[0]))
 
 static int
-do_file(const Command* cmd)
+do_file(Server* server, const Command* cmd)
 {
-    size_t size = array_sizeof(current_file);
-    snprintf(current_file, size, "%s/%s", dest_dir, cmd->u.file.path);
+    char* dest = server->current_file;
+    snprintf(dest, PATH_SIZE, "%s/%s", server->dest_dir, cmd->u.file.path);
     return 0;
 }
 
 static int
-do_body(const Command* cmd)
+do_body(const Server* server, const Command* cmd)
 {
-    FILE* fp = fopen(current_file, "w");
+    const char* path = server->current_file;
+    FILE* fp = fopen(path, "w");
     if (fp == NULL) {
-        fprintf(stderr, "Cannot open %s", current_file);
+        print_error("Cannot open %s", path);
         return 1;
     }
     size_t rest = cmd->u.body.size;
@@ -101,7 +116,7 @@ do_body(const Command* cmd)
 }
 
 static int
-do_symlink(const Command* cmd)
+do_symlink(const Server* server, const Command* cmd)
 {
     /* TODO */
     return 0;
@@ -341,7 +356,7 @@ parse(Command* cmd, const char* line)
 }
 
 static int
-run_command(const char* line)
+run_command(Server* server, const char* line)
 {
     Command cmd;
     if (parse(&cmd, line) != 0) {
@@ -349,13 +364,13 @@ run_command(const char* line)
     }
     switch (cmd.type) {
     case CMD_BODY:
-        return do_body(&cmd);
+        return do_body(server, &cmd);
     case CMD_DIR:
-        return do_dir(&cmd);
+        return do_dir(server, &cmd);
     case CMD_FILE:
-        return do_file(&cmd);
+        return do_file(server, &cmd);
     case CMD_SYMLINK:
-        return do_symlink(&cmd);
+        return do_symlink(server, &cmd);
     default:
         break;
     }
@@ -366,7 +381,16 @@ run_command(const char* line)
 int
 main(int argc, const char* argv[])
 {
-    openlog(basename(argv[0]), LOG_PID, LOG_LOCAL0);
+    const char* ident = basename(argv[0]);
+    if (argc < 2) {
+        print_error("Usage: %s <backup_dir>", ident);
+        return 1;
+    }
+    openlog(ident, LOG_PID, LOG_LOCAL0);
+
+    Server server;
+    strcat(server.dest_dir, argv[1]);
+    strcat(server.current_file, "");
 
     size_t size = 4096;
     char buf[size];
@@ -374,7 +398,7 @@ main(int argc, const char* argv[])
     while ((status == 0) && (fgets(buf, size, stdin) != NULL)) {
         trim(buf);
         syslog(LOG_INFO, "Recv: %s", buf);
-        status = run_command(buf);
+        status = run_command(&server, buf);
     }
 
     closelog();
