@@ -71,7 +71,7 @@ struct Command {
 
 typedef struct Command Command;
 
-static int
+static bool
 do_dir(const Server* server, const Command* cmd)
 {
     size_t size = 4096;
@@ -79,29 +79,29 @@ do_dir(const Server* server, const Command* cmd)
     snprintf(buf, size, "%s%s", server->dest_dir, cmd->u.dir.path);
     if (mkdir(buf, 0755) != 0) {
         print_error("mkdir failed - %s - %s", strerror(errno), buf);
-        return 1;
+        return false;
     }
-    return 0;
+    return true;
 }
 
 #define array_sizeof(a) (sizeof(a) / sizeof(a[0]))
 
-static int
+static bool
 do_file(Server* server, const Command* cmd)
 {
     char* dest = server->current_file;
     snprintf(dest, PATH_SIZE, "%s/%s", server->dest_dir, cmd->u.file.path);
-    return 0;
+    return true;
 }
 
-static int
+static bool
 do_body(const Server* server, const Command* cmd)
 {
     const char* path = server->current_file;
     FILE* fp = fopen(path, "w");
     if (fp == NULL) {
         print_error("Cannot open %s", path);
-        return 1;
+        return false;
     }
     size_t rest = cmd->u.body.size;
     while (0 < rest) {
@@ -112,14 +112,14 @@ do_body(const Server* server, const Command* cmd)
         rest -= nbytes;
     }
     fclose(fp);
-    return 0;
+    return true;
 }
 
-static int
+static bool
 do_symlink(const Server* server, const Command* cmd)
 {
     /* TODO */
-    return 0;
+    return true;
 }
 
 static void
@@ -355,12 +355,12 @@ parse(Command* cmd, const char* line)
     return 1;
 }
 
-static int
+static bool
 run_command(Server* server, const char* line)
 {
     Command cmd;
     if (parse(&cmd, line) != 0) {
-        return 1;
+        return false;
     }
     switch (cmd.type) {
     case CMD_BODY:
@@ -375,7 +375,7 @@ run_command(Server* server, const char* line)
         break;
     }
 
-    return 1;
+    return false;
 }
 
 int
@@ -394,8 +394,8 @@ main(int argc, const char* argv[])
 
     size_t size = 4096;
     char buf[size];
-    int status = 0;
-    while ((status == 0) && (fgets(buf, size, stdin) != NULL)) {
+    bool status = true;
+    while (status && (fgets(buf, size, stdin) != NULL)) {
         trim(buf);
         syslog(LOG_INFO, "Recv: %s", buf);
         status = run_command(&server, buf);
