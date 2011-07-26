@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <ctype.h>
+#include <dirent.h>
 #include <errno.h>
 #include <libgen.h>
 #include <limits.h>
@@ -9,8 +10,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <syslog.h>
 #include <time.h>
+#include <unistd.h>
 
 #define PATH_SIZE 4096
 
@@ -37,6 +40,8 @@ print_errno(const char* msg, int e, const char* info)
 
 struct Server {
     char dest_dir[PATH_SIZE];
+    char prev_dir[PATH_SIZE];
+    char master_meta_dir[PATH_SIZE];
     char current_file[PATH_SIZE];
 };
 
@@ -88,20 +93,131 @@ send(const char* msg)
     printf("%s\r\n", msg);
 }
 
-static void
-send_ok()
+#define IMPLEMENT_SEND(name, msg) \
+    static void \
+    name() \
+    { \
+        send(msg); \
+    }
+IMPLEMENT_SEND(send_ng, "NG")
+IMPLEMENT_SEND(send_ok, "OK")
+
+static bool
+do_mkdir(const char* path)
 {
-    send("OK");
+    if (mkdir(path, 0755) != 0) {
+        print_errno("mkdir failed", errno, path);
+        return false;
+    }
+    return true;
+}
+
+#define META_DIR ".meta"
+
+static void
+join(char* dest, size_t size, const char* front, const char* rear)
+{
+    snprintf(dest, size, "%s/%s", front, rear);
+}
+
+static bool
+make_meta_dir(const char* path)
+{
+    size_t size = strlen(path) + strlen(META_DIR) + 2;
+    char buf[size];
+    join(buf, size, path, META_DIR);
+    return do_mkdir(buf);
+}
+
+static bool
+make_backup_dir(const char* path)
+{
+    return do_mkdir(path) && make_meta_dir(path);
+}
+
+#define META_EXT ".ext"
+
+static void
+print_link_error(const char* name, int e, const char* src, const char* dest)
+{
+    size_t size = 32;
+    char msg[size];
+    snprintf(msg, size, "%s failed", name);
+
+    const char* arrow = " -> ";
+    char info[strlen(src) + strlen(dest) + strlen(arrow) + 1];
+    sprintf(info, "%s%s%s", dest, arrow, src);
+
+    print_error(msg, e, info);
+}
+
+static bool
+touch_and_link(const char* src, const char* dest)
+{
+    FILE* fp = fopen(src, "w");
+    if (fp == NULL) {
+        print_error("fopen failed", errno, src);
+        return false;
+    }
+    fclose(fp);
+
+    if (link(src, dest) != 0) {
+        print_link_error("link", errno, src, dest);
+        return false;
+    }
+    return true;
+}
+
+static bool
+save_meta_data(const Server* server, const char* path, mode_t mode, uid_t uid, gid_t gid)
+{
+    const char* tmp = dirname(path);
+    char dir[strlen(tmp) + 1];
+    strcpy(dir, tmp);
+    size_t size = strlen(dir) + strlen(META_DIR) + 2;
+    char meta_dir[size];
+    join(meta_dir, size, dir, META_DIR);
+
+    const char* name = basename(path);
+    char meta_name[strlen(name) + strlen(META_EXT) + 1];
+    sprintf(meta_name, "%s%s", name, META_EXT);
+
+    size_t meta_data_path_size = strlen(meta_dir) + strlen(meta_name) + 2;
+    char meta_data_path[meta_data_path_size];
+    join(meta_data_path, meta_data_path_size, meta_dir, meta_name);
+
+    size_t src_size = strlen("XXX-XXXXXX-XXXXX");
+    char src[src_size + 1];
+    sprintf(src, "%o-%u-%u", mode, uid, gid);
+    size_t src_path_size = src_size + strlen(server->master_meta_dir) + 2;
+    char src_path[src_path_size];
+    join(src_path, src_path_size, server->master_meta_dir, src);
+
+    if (link(src_path, meta_data_path) == 0) {
+        return true;
+    }
+    if (errno != ENOENT) {
+        print_link_error("link", errno, src_path, meta_data_path);
+        return false;
+    }
+    if (!touch_and_link(src_path, meta_data_path)) {
+        return false;
+    }
+    return true;
 }
 
 static bool
 do_dir(const Server* server, const Command* cmd)
 {
-    size_t size = 4096;
-    char buf[size];
-    snprintf(buf, size, "%s%s", server->dest_dir, cmd->u.dir.path);
-    if (mkdir(buf, 0755) != 0) {
-        print_errno("mkdir failed", errno, buf);
+    char path[strlen(server->dest_dir) + strlen(cmd->u.dir.path) + 1];
+    sprintf(path, "%s%s", server->dest_dir, cmd->u.dir.path);
+    if (!make_backup_dir(path)) {
+        send_ng();
+        return false;
+    }
+    mode_t mode = cmd->u.dir.mode;
+    if (!save_meta_data(server, path, mode, cmd->u.dir.uid, cmd->u.dir.gid)) {
+        send_ng();
         return false;
     }
     send_ok();
@@ -113,12 +229,28 @@ do_dir(const Server* server, const Command* cmd)
 static bool
 do_file(Server* server, const Command* cmd)
 {
-    char* path = server->current_file;
-    snprintf(path, PATH_SIZE, "%s/%s", server->dest_dir, cmd->u.file.path);
+    char* current_file = server->current_file;
+    const char* fmt = "%s%s";
+    snprintf(current_file, PATH_SIZE, fmt, server->dest_dir, cmd->u.file.path);
 
+    const char* path = cmd->u.file.path;
+    mode_t mode = cmd->u.file.mode;
+    if (!save_meta_data(server, path, mode, cmd->u.file.uid, cmd->u.file.gid)) {
+        send_ng();
+        return false;
+    }
+    if (server->prev_dir[0] == '\0') {
+        send("CHANGED");
+        return true;
+    }
+
+    size_t size = strlen(server->prev_dir) + strlen(path) + 1;
+    char prev_path[size];
+    sprintf("%s%s", server->prev_dir, path);
     struct stat sb;
-    if (lstat(path, &sb) != 0) {
-        print_errno("lstat failed", errno, path);
+    if (lstat(prev_path, &sb) == 0) {
+        print_errno("lstat failed", errno, prev_path);
+        send_ng();
         return false;
     }
     const char* msg = sb.st_mtime < cmd->u.file.mtime ? "CHANGED" : "UNCHANGED";
@@ -133,6 +265,7 @@ do_body(const Server* server, const Command* cmd)
     FILE* fp = fopen(path, "w");
     if (fp == NULL) {
         print_errno("fopen failed", errno, path);
+        send_ng();
         return false;
     }
     size_t rest = cmd->u.body.size;
@@ -152,7 +285,19 @@ do_body(const Server* server, const Command* cmd)
 static bool
 do_symlink(const Server* server, const Command* cmd)
 {
-    /* TODO */
+    const char* path = cmd->u.symlink.path;
+    mode_t mode = cmd->u.symlink.mode;
+    uid_t uid = cmd->u.symlink.uid;
+    gid_t gid = cmd->u.symlink.gid;
+    if (!save_meta_data(server, path, mode, uid, gid)) {
+        send_ng();
+        return false;
+    }
+    if (symlink(cmd->u.symlink.src, path) == 0) {
+        print_link_error("symlink", errno, cmd->u.symlink.src, path);
+        send_ng();
+        return false;
+    }
     send_ok();
     return true;
 }
@@ -430,30 +575,68 @@ make_timestamp(char* dest, size_t maxsize)
     return true;
 }
 
-static bool
-do_mkdir(const char* path)
+static void
+update_prev(const char* name, struct timeval* last, char* buf, size_t bufsize)
 {
-    if (mkdir(path, 0755) != 0) {
-        print_errno("mkdir failed", errno, path);
+    bool found = false;
+    const char* ignored[] = { ".", "..", "meta" };
+    int i;
+    for (i = 0; !found && (i < array_sizeof(ignored)); i++) {
+        found = strcmp(ignored[i], name) == 0 ? true : false;
+    }
+    if (found) {
+        return;
+    }
+
+    char timestamp[strlen(name) + 1];
+    strcpy(timestamp, name);
+    char* p = strchr(buf, '.');
+    if (p == NULL) {
+        return;
+    }
+    *p = '\0';
+    struct tm tm;
+    if (strptime(timestamp, "%Y-%m-%dT%H:%M:%S", &tm) == NULL) {
+        return; 
+    }
+    struct timeval tv = { mktime(&tm), atoi(p + 1) };
+    if (tv.tv_sec < last->tv_sec) {
+        return;
+    }
+    if ((tv.tv_sec == last->tv_sec) && (tv.tv_usec < last->tv_usec)) {
+        return;
+    }
+    memcpy(last, &tv, sizeof(tv));
+    strncpy(buf, name, bufsize);
+}
+
+static bool
+find_prev(char* prev, const char* dir)
+{
+    DIR* dirp = opendir(dir);
+    if (dirp == NULL) {
+        print_errno("opendir failed", errno, dir);
         return false;
     }
+    char buf[PATH_SIZE];
+    struct timeval last = { 0, 0 };
+    struct dirent* e;
+    while ((e = readdir(dirp)) != NULL) {
+        update_prev(e->d_name, &last, buf, PATH_SIZE);
+    }
+    closedir(dirp);
+    strcpy(prev, buf);
     return true;
 }
 
-#define META_DIR ".meta"
-
-static bool
-make_metadir(const char* path)
+static void
+set_prev_dir(char* dest, size_t size, const char* backup_dir, const char* name)
 {
-    char buf[strlen(path) + strlen(META_DIR) + 1];
-    sprintf(buf, "%s/%s", path, META_DIR);
-    return do_mkdir(buf);
-}
-
-static bool
-make_backup_dir(const char* path)
-{
-    return do_mkdir(path) && make_metadir(path);
+    if (name[0] == '\0') {
+        dest[0] = '\0';
+        return;
+    }
+    join(dest, size, backup_dir, name);
 }
 
 int
@@ -466,16 +649,25 @@ main(int argc, const char* argv[])
     }
     openlog(ident, LOG_PID, LOG_LOCAL0);
 
+    const char* backup_dir = argv[1];
     size_t maxsize = strlen("yyyy-mm-ddThh:nn:ss.000");
+    char prev[maxsize + 1];
+    if (!find_prev(prev, backup_dir)) {
+        return 1;
+    }
+
     char timestamp[maxsize + 1];
     if (!make_timestamp(timestamp, maxsize)) {
         return 1;
     }
 
     Server server;
-    sprintf(server.dest_dir, "%s/%s", argv[1], timestamp);
+    join(server.dest_dir, PATH_SIZE, backup_dir, timestamp);
+    set_prev_dir(server.prev_dir, PATH_SIZE, backup_dir, prev);
+    join(server.master_meta_dir, PATH_SIZE, backup_dir, "meta");
     server.current_file[0] = '\0';
     syslog(LOG_INFO, "New backup: %s", server.dest_dir);
+    syslog(LOG_INFO, "Prev backup: %s", server.prev_dir);
     if (!make_backup_dir(server.dest_dir)) {
         return 1;
     }
