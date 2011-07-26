@@ -4,6 +4,7 @@
 .deps
 .ditz-config
 .gdb_history
+Makefile
 Makefile.in
 aclocal.m4
 autom4te.cache
