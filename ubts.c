@@ -343,8 +343,11 @@ do_symlink(const Server* server, const Command* cmd)
         send_ng();
         return false;
     }
-    if (symlink(cmd->u.symlink.src, path) == 0) {
-        print_link_error("symlink", errno, cmd->u.symlink.src, path);
+    size_t size = strlen(server->dest_dir) + strlen(path) + 2;
+    char buf[size];
+    join(buf, size, server->dest_dir, path);
+    if (symlink(cmd->u.symlink.src, buf) != 0) {
+        print_link_error("symlink", errno, cmd->u.symlink.src, buf);
         send_ng();
         return false;
     }
