@@ -113,6 +113,7 @@ typedef struct Command Command;
 static void
 send(const char* msg)
 {
+    print_info("Send: %s", msg);
     printf("%s\r\n", msg);
     fflush(stdout);
 }
@@ -261,34 +262,48 @@ do_dir(const Server* server, const Command* cmd)
 #define array_sizeof(a) (sizeof(a) / sizeof(a[0]))
 
 static bool
+check_file_changed(Server* server, const char* path, time_t timestamp)
+{
+    if (server->prev_dir[0] == '\0') {
+        return true;
+    }
+
+    struct stat sb;
+    if (lstat(path, &sb) != 0) {
+        return true;
+    }
+    return sb.st_mtime < timestamp;
+}
+
+static bool
 do_file(Server* server, const Command* cmd)
 {
     char* current_file = server->current_file;
     const char* fmt = "%s%s";
-    snprintf(current_file, PATH_SIZE, fmt, server->dest_dir, cmd->u.file.path);
-
     const char* path = cmd->u.file.path;
+    snprintf(current_file, PATH_SIZE, fmt, server->dest_dir, path);
+
     mode_t mode = cmd->u.file.mode;
     if (!save_meta_data(server, path, mode, cmd->u.file.uid, cmd->u.file.gid)) {
         send_ng();
         return false;
     }
-    if (server->prev_dir[0] == '\0') {
+
+    size_t size = strlen(server->prev_dir) + strlen(path) + 1;
+    char prev_path[size];
+    sprintf(prev_path, "%s%s", server->prev_dir, path);
+    if (check_file_changed(server, prev_path, cmd->u.file.mtime)) {
         send("CHANGED");
         return true;
     }
 
-    size_t size = strlen(server->prev_dir) + strlen(path) + 1;
-    char prev_path[size];
-    sprintf("%s%s", server->prev_dir, path);
-    struct stat sb;
-    if (lstat(prev_path, &sb) == 0) {
-        print_errno("lstat failed", errno, prev_path);
+    if (link(prev_path, current_file) != 0) {
+        print_link_error("link", errno, prev_path, current_file);
         send_ng();
         return false;
     }
-    const char* msg = sb.st_mtime < cmd->u.file.mtime ? "CHANGED" : "UNCHANGED";
-    send(msg);
+
+    send("UNCHANGED");
     return true;
 }
 
@@ -628,7 +643,7 @@ update_prev(const char* name, struct timeval* last, char* buf, size_t bufsize)
 
     char timestamp[strlen(name) + 1];
     strcpy(timestamp, name);
-    char* p = strchr(buf, '.');
+    char* p = strchr(timestamp, '.');
     if (p == NULL) {
         return;
     }
@@ -649,7 +664,7 @@ update_prev(const char* name, struct timeval* last, char* buf, size_t bufsize)
 }
 
 static bool
-find_prev(char* prev, const char* dir)
+find_prev(char* dest, const char* dir)
 {
     DIR* dirp = opendir(dir);
     if (dirp == NULL) {
@@ -663,7 +678,7 @@ find_prev(char* prev, const char* dir)
         update_prev(e->d_name, &last, buf, PATH_SIZE);
     }
     closedir(dirp);
-    strcpy(prev, buf);
+    strcpy(dest, buf);
     return true;
 }
 
