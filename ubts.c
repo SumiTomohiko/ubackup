@@ -610,7 +610,7 @@ run_command(Server* server, const char* line)
     case CMD_SYMLINK:
         return do_symlink(server, &cmd);
     case CMD_THANK_YOU:
-        return 1;
+        return true;
     default:
         break;
     }
