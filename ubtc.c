@@ -131,7 +131,7 @@ backup_parent(Client* client, const char* path)
     strcpy(dir, parent);
     backup_parent(client, dir);
 
-    send_dir(client, dir);
+    send_dir(client, path);
 }
 
 static void
