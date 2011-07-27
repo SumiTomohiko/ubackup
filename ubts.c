@@ -623,7 +623,7 @@ make_timestamp(char* dest, size_t maxsize)
     localtime_r(&tv.tv_sec, &tm);
     strftime(dest, maxsize, "%Y-%m-%dT%H:%M:%S", &tm);
     char millisecond[5];
-    sprintf(millisecond, ".%03lu", tv.tv_usec / 1000);
+    sprintf(millisecond, ",%03lu", tv.tv_usec / 1000);
     strcat(dest, millisecond);
     return true;
 }
@@ -643,7 +643,7 @@ update_prev(const char* name, struct timeval* last, char* buf, size_t bufsize)
 
     char timestamp[strlen(name) + 1];
     strcpy(timestamp, name);
-    char* p = strchr(timestamp, '.');
+    char* p = strchr(timestamp, ',');
     if (p == NULL) {
         return;
     }
@@ -705,7 +705,7 @@ main(int argc, const char* argv[])
     openlog(ident, LOG_PID, LOG_LOCAL0);
 
     const char* backup_dir = argv[1];
-    size_t maxsize = strlen("yyyy-mm-ddThh:nn:ss.000");
+    size_t maxsize = strlen("yyyy-mm-ddThh:nn:ss,000");
     char prev[maxsize + 1];
     if (!find_prev(prev, backup_dir)) {
         return 1;
