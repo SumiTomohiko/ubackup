@@ -695,11 +695,13 @@ set_prev_dir(char* dest, size_t size, const char* backup_dir, const char* name)
 int
 main(int argc, const char* argv[])
 {
-    const char* ident = basename(argv[0]);
+    const char* s = basename(argv[0]);
     if (argc < 2) {
-        print_error("Usage: %s <backup_dir>", ident);
+        print_error("Usage: %s <backup_dir>", s);
         return 1;
     }
+    char ident[strlen(s) + 1];
+    strcpy(ident, s);
     openlog(ident, LOG_PID, LOG_LOCAL0);
 
     const char* backup_dir = argv[1];
