@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <dirent.h>
+#include <getopt.h>
 #include <libgen.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -68,42 +69,52 @@ quote(char* dest, const char* path)
 }
 
 static void
-send_dir(const char* path)
+get_path_from_root(char* dest, const char* root, const char* path)
+{
+    strcpy(dest, path + (strcmp(root, "/") == 0 ? 0 : strlen(root)));
+}
+
+static void
+send_dir(const char* root, const char* path)
 {
     struct stat sb;
     if (lstat(path, &sb) != 0) {
         perror("lstat failed");
         return;
     }
-    char buf[2 * strlen(path) + 3];
-    quote(buf, path);
+    char path_from_root[strlen(path) + 1];
+    get_path_from_root(path_from_root, root, path);
+    char buf[2 * strlen(path_from_root) + 3];
+    quote(buf, path_from_root);
     send("DIR %s %o %d %d", buf, 0777 & sb.st_mode, sb.st_uid, sb.st_gid);
     recv_ok();
 }
 
 static void
-backup_parent(const char* path)
+backup_parent(const char* root, const char* path)
 {
     const char* parent = dirname(path);
     if (parent == NULL) {
         perror("dirname failed");
         return;
     }
-    if (strcmp(parent, "/") == 0) {
+    if (strcmp(parent, root) == 0) {
         return;
     }
     char dir[strlen(parent) + 1];
     strcpy(dir, parent);
-    backup_parent(dir);
+    backup_parent(root, dir);
 
-    send_dir(dir);
+    send_dir(root, dir);
 }
 
 static void
-send_symlink(const char* path)
+send_symlink(const char* root, const char* path)
 {
-    char quoted_path[2 * strlen(path) + 3];
-    quote(quoted_path, path);
+    char path_from_root[strlen(path) + 1];
+    get_path_from_root(path_from_root, root, path);
+    char quoted_path[2 * strlen(path_from_root) + 3];
+    quote(quoted_path, path_from_root);
 
     struct stat sb;
     if (lstat(path, &sb) != 0) {
@@ -129,10 +140,12 @@ send_symlink(const char* path)
 }
 
 static void
-send_locked_file(const char* path, FILE* fp)
+send_locked_file(const char* root, const char* path, FILE* fp)
 {
-    char buf[2 * strlen(path) + 3];
-    quote(buf, path);
+    char path_from_root[strlen(path) + 1];
+    get_path_from_root(path_from_root, root, path);
+    char buf[2 * strlen(path_from_root) + 3];
+    quote(buf, path_from_root);
 
     struct stat sb;
     if (lstat(path, &sb) != 0) {
@@ -168,7 +181,7 @@ send_locked_file(const char* path, FILE* fp)
 }
 
 static void
-send_file(const char* path)
+send_file(const char* root, const char* path)
 {
     FILE* fp = fopen(path, "r");
     if (fp == NULL) {
@@ -181,17 +194,17 @@ send_file(const char* path)
         fclose(fp);
         return;
     }
-    send_locked_file(path, fp);
+    send_locked_file(root, path, fp);
     if (flock(fd, LOCK_UN) != 0) {
         perror("flock failed");
     }
     fclose(fp);
 }
 
-static void backup_dir(const char*);
+static void backup_dir(const char*, const char*);
 
 static void
-send_dir_entry(const char* path, const char* name)
+send_dir_entry(const char* root, const char* path, const char* name)
 {
     if ((strcmp(name, ".") == 0) || (strcmp(name, "..") == 0)) {
         return;
@@ -204,20 +217,20 @@ send_dir_entry(const char* path, const char* name)
         return;
     }
     if (S_ISDIR(sb.st_mode)) {
-        backup_dir(fullpath);
+        backup_dir(root, fullpath);
         return;
     }
     if (S_ISLNK(sb.st_mode)) {
-        send_symlink(fullpath);
+        send_symlink(root, fullpath);
         return;
     }
-    send_file(fullpath);
+    send_file(root, fullpath);
 }
 
 static void
-backup_dir(const char* path)
+backup_dir(const char* root, const char* path)
 {
-    send_dir(path);
+    send_dir(root, path);
 
     DIR* dirp = opendir(path);
     if (dirp == NULL) {
@@ -226,16 +239,16 @@ backup_dir(const char* path)
     }
     struct dirent* e;
     while ((e = readdir(dirp)) != NULL) {
-        send_dir_entry(path, e->d_name);
+        send_dir_entry(root, path, e->d_name);
     }
     closedir(dirp);
 }
 
 static void
-backup_tree(const char* path)
+backup_tree(const char* root, const char* path)
 {
-    backup_parent(path);
-    backup_dir(path);
+    backup_parent(root, path);
+    backup_dir(root, path);
 }
 
 static void
@@ -260,7 +273,7 @@ dup_fd(int old, int new)
 }
 
 static void
-exec_ssh()
+exec_server(const char* cmd)
 {
     int c2s[2];
     create_pipe(c2s);
@@ -279,27 +292,129 @@ exec_ssh()
     }
     close(c2s[WRITE]);
     close(s2c[READ]);
-    char* args[] = {
-        "/usr/bin/ssh",
-        "windsor",
-        "/home/tom/projects/ubts",
-        NULL };
-    if (execvp(args[0], args) == -1) {
-        perror("execvp failed");
+    const char* sh = "/bin/sh";
+    if (execl(sh, sh, "-c", cmd, NULL) == -1) {
+        perror("execv failed");
         return;
     }
     dup_fd(c2s[READ], 0);
     dup_fd(s2c[WRITE], 1);
 }
 
-int
-main(int argc, const char* argv[])
+static void
+usage(const char* ident)
 {
-    exec_ssh();
+    printf("%s [--command=cmd] [--root=root] dir ...\n", ident);
+}
+
+#define array_sizeof(a) (sizeof(a) / sizeof(a[0]))
+#define PATH_SIZE 4096
+
+static void
+absolutize_path(char* dest, size_t size, const char* path)
+{
+    if (path[0] == '/') {
+        strcpy(dest, path);
+        return;
+    }
+    char* cwd = getcwd(NULL, 0);
+    snprintf(dest, size, "%s/%s", cwd, path);
+    free(cwd);
+}
+
+static void
+skip_path_separators(const char** p)
+{
+    while (**p == '/') {
+        (*p)++;
+    }
+}
+
+static void
+get_next_path_element(char* dest, size_t size, const char* path)
+{
+    const char* p = strchr(path, '/');
+    if (p == NULL) {
+        strncpy(dest, path, size);
+        return;
+    }
+    size_t name_size = p - path + 1;
+    strncpy(dest, path, name_size < size ? name_size : size);
+}
+
+static void
+remove_parent(char** p, const char* top)
+{
+    char* q = strrchr(*p, '/');
+    if (q == top) {
+        return;
+    }
+    *p = q;
+}
+
+static void
+normalize_path(char* dest, size_t size, const char* path)
+{
+    char abs_path[PATH_SIZE];
+    absolutize_path(abs_path, array_sizeof(abs_path), path);
+
+    const char* from = abs_path;
+    char* to = dest;
+    while (*from != '\0') {
+        if (*from == '/') {
+            *to = *from;
+            skip_path_separators(&from);
+            continue;
+        }
+        char name[PATH_SIZE];
+        get_next_path_element(name, array_sizeof(name), from);
+        if (strcmp(name, ".") == 0) {
+            /* Do nothing */
+        }
+        if (strcmp(name, "..") == 0) {
+            remove_parent(&to, path);
+        }
+        from += strlen(name);
+    }
+    *to = *from;
+}
+
+int
+main(int argc, char* argv[])
+{
+    struct option opts[] = {
+        { "command", 1, NULL, 'c' },
+        { "root", 1, NULL, 'r' },
+        { NULL, 0, NULL, 0 }
+    };
+
+    const char* cmd = "ssh windsor ~/projects/UnnamedBackupTool/ubts";
+    const char* root = "/";
+    int opt;
+    while ((opt = getopt_long_only(argc, argv, NULL, opts, NULL)) != -1) {
+        switch (opt) {
+        case 'c':
+            cmd = optarg;
+            break;
+        case 'r':
+            root = optarg;
+            break;
+        default:
+            usage(basename(argv[0]));
+            return 1;
+        }
+    }
+
+    char abs_root[PATH_SIZE];
+    normalize_path(abs_root, array_sizeof(abs_root), root);
+
+    exec_server(cmd);
 
     int i;
-    for (i = 1; i < argc; i++) {
-        backup_tree(argv[i]);
+    for (i = optind; i < argc; i++) {
+        char abs_path[PATH_SIZE];
+        normalize_path(abs_path, array_sizeof(abs_path), argv[i]);
+        backup_tree(abs_root, abs_path);
     }
     return 0;
 }
