@@ -75,6 +75,7 @@ enum Type {
     CMD_DIR,
     CMD_FILE,
     CMD_SYMLINK,
+    CMD_THANK_YOU,
 };
 
 typedef enum Type Type;
@@ -406,7 +407,8 @@ parse_type(Type* type, const char** p)
         { "BODY", CMD_BODY },
         { "DIR", CMD_DIR },
         { "FILE", CMD_FILE },
-        { "SYMLINK", CMD_SYMLINK }};
+        { "SYMLINK", CMD_SYMLINK },
+        { "THANK_YOU", CMD_THANK_YOU }};
     bool found = false;
     int i;
     for (i = 0; !found && (i < array_sizeof(name2type)); i++) {
@@ -604,6 +606,8 @@ run_command(Server* server, const char* line)
         return do_file(server, &cmd);
     case CMD_SYMLINK:
         return do_symlink(server, &cmd);
+    case CMD_THANK_YOU:
+        return 1;
     default:
         break;
     }

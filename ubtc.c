@@ -7,8 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/file.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #define PATH_SIZE 4096
@@ -306,7 +309,7 @@ do_fdopen(int fd, const char* mode)
     return fp;
 }
 
-static void
+static pid_t
 exec_server(Client* client, const char* cmd)
 {
     int c2s[2];
@@ -324,7 +327,7 @@ exec_server(Client* client, const char* cmd)
         close(c2s[READ]);
         client->in = do_fdopen(s2c[READ], "r");
         client->out = do_fdopen(c2s[WRITE], "w");
-        return;
+        return pid;
     }
     dup_fd(c2s[READ], 0);
     dup_fd(s2c[WRITE], 1);
@@ -335,6 +338,7 @@ exec_server(Client* client, const char* cmd)
         perror("execl failed");
     }
     /* NOTREACHED */
+    return 0;
 }
 
 static void
@@ -471,7 +475,7 @@ main(int argc, char* argv[])
     Client client;
     normalize_path(client.root, PATH_SIZE, root);
 
-    exec_server(&client, cmd);
+    pid_t pid = exec_server(&client, cmd);
 
     int i;
     for (i = optind; i < argc; i++) {
@@ -479,6 +483,11 @@ main(int argc, char* argv[])
         normalize_path(abs_path, array_sizeof(abs_path), argv[i]);
         backup_tree(&client, abs_path);
     }
+    send(&client, "THANK_YOU");
+
+    int status;
+    waitpid(pid, &status, 0);
+
     return 0;
 }
 
