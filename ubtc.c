@@ -310,7 +310,7 @@ do_fdopen(int fd, const char* mode)
 }
 
 static pid_t
-exec_server(Client* client, const char* cmd)
+exec_server(Client* client, char* cmd)
 {
     int c2s[2];
     create_pipe(c2s);
@@ -333,9 +333,9 @@ exec_server(Client* client, const char* cmd)
     dup_fd(s2c[WRITE], 1);
     close(c2s[WRITE]);
     close(s2c[READ]);
-    const char* sh = "/bin/sh";
-    if (execl(sh, sh, "-c", cmd, NULL) == -1) {
-        perror("execl failed");
+    char* argv[] = { "/bin/sh", "-c", cmd, NULL };
+    if (execv(argv[0], argv) == -1) {
+        perror("execv failed");
     }
     /* NOTREACHED */
     return 0;
@@ -458,7 +458,14 @@ main(int argc, char* argv[])
         { NULL, 0, NULL, 0 }
     };
 
-    const char* cmd = "ssh windsor ~/projects/UnnamedBackupTool/ubts";
+    /**
+     * Parameters:
+     * username
+     * hostname
+     * ubts_path
+     * dest
+     */
+    char* cmd = "ssh tom@windsor ~/projects/UnnamedBackupTool/ubts /backup/nymphenburg";
     const char* root = "/";
     int opt;
     while ((opt = getopt_long_only(argc, argv, "", opts, NULL)) != -1) {
