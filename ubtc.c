@@ -443,6 +443,9 @@ normalize_path(char* dest, size_t size, const char* path)
         to += len;
     }
     *to = *from;
+    if (strcmp(dest, "/") == 0) {
+        return;
+    }
     remove_trailing_path_separators(to, path);
 }
 
