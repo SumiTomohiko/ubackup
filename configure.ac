@@ -15,7 +15,8 @@ AC_PROG_INSTALL
 # Checks for libraries.
 
 # Checks for header files.
-AC_CHECK_HEADERS([limits.h stdlib.h string.h sys/file.h syslog.h unistd.h])
+AC_CHECK_HEADERS([limits.h stdlib.h string.h sys/file.h sys/time.h syslog.h \
+                  unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
@@ -29,8 +30,8 @@ AC_TYPE_SSIZE_T
 AC_FUNC_FORK
 AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_MKTIME
-AC_CHECK_FUNCS([dup2 gettimeofday localtime_r mkdir strchr strerror strrchr \
-                strtoul])
+AC_CHECK_FUNCS([dup2 getcwd gettimeofday localtime_r mkdir strchr strerror \
+                strrchr strtoul])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

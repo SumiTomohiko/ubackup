@@ -146,14 +146,6 @@ join(char* dest, size_t size, const char* front, const char* rear)
     snprintf(dest, size, "%s/%s", front, rear);
 }
 
-static void
-join2(char* dest, size_t size, const char* name1, const char* name2, const char* name3)
-{
-    char buf[size];
-    join(buf, size, name1, name2);
-    join(dest, size, buf, name3);
-}
-
 static bool
 make_meta_dir(const char* path)
 {
@@ -186,57 +178,34 @@ print_link_error(const char* name, int e, const char* src, const char* dest)
 }
 
 static bool
-touch_and_link(const char* src, const char* dest)
-{
-    FILE* fp = fopen(src, "w");
-    if (fp == NULL) {
-        print_errno("fopen failed", errno, src);
-        return false;
-    }
-    fclose(fp);
-
-    if (link(src, dest) != 0) {
-        print_link_error("link", errno, src, dest);
-        return false;
-    }
-    return true;
-}
-
-static bool
 save_meta_data(const Server* server, const char* path, mode_t mode, uid_t uid, gid_t gid)
 {
     const char* tmp = dirname(path);
-    char dir[strlen(tmp) + 1];
-    strcpy(dir, tmp);
-    size_t size = strlen(server->dest_dir) + strlen(dir) + strlen(META_DIR) + 3;
-    char meta_dir[size];
-    join2(meta_dir, size, server->dest_dir, dir, META_DIR);
+    char dir[strlen(server->dest_dir) + strlen(tmp) + 1];
+    const char* s = strcmp(tmp, "/") == 0 ? "" : tmp;
+    sprintf(dir, "%s%s", server->dest_dir, s);
+    size_t meta_dir_size = strlen(dir) + strlen(META_DIR) + 2;
+    char meta_dir[meta_dir_size];
+    join(meta_dir, meta_dir_size, dir, META_DIR);
 
     const char* name = basename(path);
     char meta_name[strlen(name) + strlen(META_EXT) + 1];
     sprintf(meta_name, "%s%s", name, META_EXT);
 
-    size_t meta_data_path_size = strlen(meta_dir) + strlen(meta_name) + 2;
-    char meta_data_path[meta_data_path_size];
-    join(meta_data_path, meta_data_path_size, meta_dir, meta_name);
+    size_t meta_path_size = strlen(meta_dir) + strlen(meta_name) + 2;
+    char meta_path[meta_path_size];
+    join(meta_path, meta_path_size, meta_dir, meta_name);
 
-    size_t src_size = strlen("XXX-XXXXXX-XXXXX");
-    char src[src_size + 1];
-    sprintf(src, "%o-%u-%u", mode, uid, gid);
-    size_t src_path_size = src_size + strlen(server->master_meta_dir) + 2;
-    char src_path[src_path_size];
-    join(src_path, src_path_size, server->master_meta_dir, src);
-
-    if (link(src_path, meta_data_path) == 0) {
-        return true;
-    }
-    if (errno != ENOENT) {
-        print_link_error("link", errno, src_path, meta_data_path);
+    FILE* fp = fopen(meta_path, "w");
+    if (fp == NULL) {
+        print_errno("fopen failed", errno, meta_path);
         return false;
     }
-    if (!touch_and_link(src_path, meta_data_path)) {
-        return false;
-    }
+    fprintf(fp, "%o\n", mode);
+    fprintf(fp, "%u\n", uid);
+    fprintf(fp, "%u", gid);
+    fclose(fp);
+
     return true;
 }
 
@@ -610,7 +579,7 @@ run_command(Server* server, const char* line)
     case CMD_SYMLINK:
         return do_symlink(server, &cmd);
     case CMD_THANK_YOU:
-        return 1;
+        return true;
     default:
         break;
     }
