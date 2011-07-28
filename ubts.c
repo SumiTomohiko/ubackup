@@ -64,7 +64,6 @@ print_errno(const char* msg, int e, const char* info)
 struct Server {
     char dest_dir[PATH_SIZE];
     char prev_dir[PATH_SIZE];
-    char master_meta_dir[PATH_SIZE];
     char current_file[PATH_SIZE];
 };
 
@@ -695,14 +694,9 @@ main(int argc, const char* argv[])
     Server server;
     join(server.dest_dir, PATH_SIZE, backup_dir, timestamp);
     set_prev_dir(server.prev_dir, PATH_SIZE, backup_dir, prev);
-    join(server.master_meta_dir, PATH_SIZE, backup_dir, "meta");
     server.current_file[0] = '\0';
     print_info("New backup: %s", server.dest_dir);
     print_info("Prev backup: %s", server.prev_dir);
-    if ((mkdir(server.master_meta_dir, 0755) != 0) && (errno != EEXIST)) {
-        print_errno("mkdir failed", errno, server.master_meta_dir);
-        return 1;
-    }
     if (!make_backup_dir(server.dest_dir)) {
         return 1;
     }
