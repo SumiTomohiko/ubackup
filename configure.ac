@@ -30,8 +30,8 @@ AC_TYPE_SSIZE_T
 AC_FUNC_FORK
 AC_FUNC_LSTAT_FOLLOWS_SLASHED_SYMLINK
 AC_FUNC_MKTIME
-AC_CHECK_FUNCS([dup2 getcwd gettimeofday localtime_r mkdir strchr strerror \
-                strrchr strtoul])
+AC_CHECK_FUNCS([bzero dup2 getcwd gettimeofday localtime_r mkdir strchr \
+                strerror strrchr strtoul])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
