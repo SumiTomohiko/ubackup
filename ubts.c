@@ -90,6 +90,7 @@ struct Command {
             mode_t mode;
             uid_t uid;
             gid_t gid;
+            time_t ctime;
         } dir;
         struct {
             char path[PATH_SIZE];
@@ -97,12 +98,14 @@ struct Command {
             uid_t uid;
             gid_t gid;
             time_t mtime;
+            time_t ctime;
         } file;
         struct {
             char path[PATH_SIZE];
             mode_t mode;
             uid_t uid;
             gid_t gid;
+            time_t ctime;
             char src[PATH_SIZE];
         } symlink;
     } u;
@@ -177,15 +180,38 @@ print_link_error(const char* name, int e, const char* src, const char* dest)
 }
 
 static bool
-save_meta_data(const Server* server, const char* path, mode_t mode, uid_t uid, gid_t gid)
+make_link(const char* src, const char* dest)
 {
-    const char* tmp = dirname(path);
-    char dir[strlen(server->dest_dir) + strlen(tmp) + 1];
-    const char* s = strcmp(tmp, "/") == 0 ? "" : tmp;
-    sprintf(dir, "%s%s", server->dest_dir, s);
-    size_t meta_dir_size = strlen(dir) + strlen(META_DIR) + 2;
+    if (link(src, dest) != 0) {
+        print_link_error("link", errno, src, dest);
+        return false;
+    }
+    return true;
+}
+
+static bool
+check_file_changed(const Server* server, const char* path, time_t timestamp)
+{
+    if (server->prev_dir[0] == '\0') {
+        return true;
+    }
+
+    struct stat sb;
+    if (lstat(path, &sb) != 0) {
+        return true;
+    }
+    return sb.st_mtime < timestamp;
+}
+
+static bool
+save_meta_data(const Server* server, const char* path, mode_t mode, uid_t uid, gid_t gid, time_t ctime)
+{
+    char dir[PATH_SIZE];
+    strcpy(dir, dirname(path));
+    const char* s = strcmp(dir, "/") == 0 ? "" : dir;
+    size_t meta_dir_size = strlen(s) + strlen(META_DIR) + 2;
     char meta_dir[meta_dir_size];
-    join(meta_dir, meta_dir_size, dir, META_DIR);
+    join(meta_dir, meta_dir_size, s, META_DIR);
 
     const char* name = basename(path);
     char meta_name[strlen(name) + strlen(META_EXT) + 1];
@@ -195,9 +221,19 @@ save_meta_data(const Server* server, const char* path, mode_t mode, uid_t uid, g
     char meta_path[meta_path_size];
     join(meta_path, meta_path_size, meta_dir, meta_name);
 
-    FILE* fp = fopen(meta_path, "w");
+    size_t prev_dir_size = strlen(server->prev_dir);
+    char prev_path[prev_dir_size + strlen(meta_path) + 1];
+    sprintf(prev_path, "%s%s", server->prev_dir, meta_path);
+    char abspath[prev_dir_size + strlen(meta_path) + 1];
+    sprintf(abspath, "%s%s", server->dest_dir, meta_path);
+
+    if (!check_file_changed(server, prev_path, ctime)) {
+        return make_link(prev_path, abspath);
+    }
+
+    FILE* fp = fopen(abspath, "w");
     if (fp == NULL) {
-        print_errno("fopen failed", errno, meta_path);
+        print_errno("fopen failed", errno, abspath);
         return false;
     }
     fprintf(fp, "%o\n", mode);
@@ -220,7 +256,8 @@ do_dir(const Server* server, const Command* cmd)
     mode_t mode = cmd->u.dir.mode;
     uid_t uid = cmd->u.dir.uid;
     gid_t gid = cmd->u.dir.gid;
-    if (!save_meta_data(server, cmd->u.dir.path, mode, uid, gid)) {
+    time_t ctime = cmd->u.dir.ctime;
+    if (!save_meta_data(server, cmd->u.dir.path, mode, uid, gid, ctime)) {
         send_ng();
         return false;
     }
@@ -231,29 +268,16 @@ do_dir(const Server* server, const Command* cmd)
 #define array_sizeof(a) (sizeof(a) / sizeof(a[0]))
 
 static bool
-check_file_changed(Server* server, const char* path, time_t timestamp)
-{
-    if (server->prev_dir[0] == '\0') {
-        return true;
-    }
-
-    struct stat sb;
-    if (lstat(path, &sb) != 0) {
-        return true;
-    }
-    return sb.st_mtime < timestamp;
-}
-
-static bool
 do_file(Server* server, const Command* cmd)
 {
     char* current_file = server->current_file;
-    const char* fmt = "%s%s";
     const char* path = cmd->u.file.path;
-    snprintf(current_file, PATH_SIZE, fmt, server->dest_dir, path);
+    snprintf(current_file, PATH_SIZE, "%s%s", server->dest_dir, path);
 
     mode_t mode = cmd->u.file.mode;
-    if (!save_meta_data(server, path, mode, cmd->u.file.uid, cmd->u.file.gid)) {
+    uid_t uid = cmd->u.file.uid;
+    gid_t gid = cmd->u.file.gid;
+    if (!save_meta_data(server, path, mode, uid, gid, cmd->u.file.ctime)) {
         send_ng();
         return false;
     }
@@ -266,8 +290,7 @@ do_file(Server* server, const Command* cmd)
         return true;
     }
 
-    if (link(prev_path, current_file) != 0) {
-        print_link_error("link", errno, prev_path, current_file);
+    if (!make_link(prev_path, current_file)) {
         send_ng();
         return false;
     }
@@ -307,7 +330,8 @@ do_symlink(const Server* server, const Command* cmd)
     mode_t mode = cmd->u.symlink.mode;
     uid_t uid = cmd->u.symlink.uid;
     gid_t gid = cmd->u.symlink.gid;
-    if (!save_meta_data(server, path, mode, uid, gid)) {
+    time_t ctime = cmd->u.symlink.ctime;
+    if (!save_meta_data(server, path, mode, uid, gid, ctime)) {
         send_ng();
         return false;
     }
@@ -464,15 +488,18 @@ parse_string(char* dest, const char** p)
 }
 
 static int
-parse_mtime(time_t* dest, const char** p)
+parse_timestamp(time_t* dest, const char** p)
 {
     skip_whitespace(p);
 
     struct tm tm;
-    if (strptime(*p, "%Y-%m-%dT%H:%M:%S", &tm) == NULL) {
+    bzero(&tm, sizeof(tm));
+    const char* q = strptime(*p, "%Y-%m-%dT%H:%M:%S", &tm);
+    if (q == NULL) {
         return 1;
     }
     *dest = mktime(&tm);
+    *p = q;
     return 0;
 }
 
@@ -490,6 +517,9 @@ parse_symlink(Command* cmd, const char* params)
         return 1;
     }
     if (parse_decimal(&cmd->u.symlink.gid, &p) != 0) {
+        return 1;
+    }
+    if (parse_timestamp(&cmd->u.symlink.ctime, &p) != 0) {
         return 1;
     }
     if (parse_string(cmd->u.symlink.src, &p) != 0) {
@@ -514,7 +544,10 @@ parse_file(Command* cmd, const char* params)
     if (parse_decimal(&cmd->u.file.gid, &p) != 0) {
         return 1;
     }
-    if (parse_mtime(&cmd->u.file.mtime, &p) != 0) {
+    if (parse_timestamp(&cmd->u.file.mtime, &p) != 0) {
+        return 1;
+    }
+    if (parse_timestamp(&cmd->u.file.ctime, &p) != 0) {
         return 1;
     }
     return 0;
@@ -534,6 +567,9 @@ parse_dir(Command* cmd, const char* params)
         return 1;
     }
     if (parse_decimal(&cmd->u.dir.gid, &p) != 0) {
+        return 1;
+    }
+    if (parse_timestamp(&cmd->u.dir.ctime, &p) != 0) {
         return 1;
     }
     return 0;

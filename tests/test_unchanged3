@@ -6,6 +6,7 @@ src="${SRC_DIR}/${name}"
 zero_or_die touch "${src}"
 eval ${CMD} "${SRC_DIR}"
 zero_or_die sleep 1
+zero_or_die chmod 755 "${src}"
 eval ${CMD} "${SRC_DIR}"
 test `ls -i ${DEST_DIR}/*/${name} | awk '{ print $1 }' | sort -u | wc -l` = "1"
 

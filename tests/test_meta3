@@ -1,0 +1,21 @@
+
+. "${LIB}"
+
+name="foo.dat"
+src="${SRC_DIR}/${name}"
+zero_or_die touch "${src}"
+uid=`ls -nl ${src} | awk '{ print \$3 }'`
+gid=`ls -nl ${src} | awk '{ print \$4 }'`
+meta="755
+${uid}
+${gid}"
+
+eval ${CMD} "${SRC_DIR}"
+zero_or_die sleep 1
+zero_or_die chmod 755 "${src}"
+eval ${CMD} "${SRC_DIR}"
+
+meta_path="${DEST_DIR}/*/.meta/${name}.meta"
+test "$(ls ${meta_path} | tail -n 1 | xargs cat)" = "${meta}"
+
+# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh

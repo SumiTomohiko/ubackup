@@ -96,6 +96,16 @@ get_path_from_root(char* dest, const char* root, const char* path)
     strcpy(dest, path + (strcmp(root, "/") == 0 ? 0 : strlen(root)));
 }
 
+#define ISO_8601_MAXSIZE (strlen("yyyy-mm-ddThh:nn:ss") + 1)
+
+static void
+to_iso8601(char* buf, size_t bufsize, const time_t* clock)
+{
+    struct tm tm;
+    localtime_r(clock, &tm);
+    strftime(buf, bufsize, "%Y-%m-%dT%H:%M:%S", &tm);
+}
+
 static void
 send_dir(Client* client, const char* path)
 {
@@ -108,8 +118,11 @@ send_dir(Client* client, const char* path)
     get_path_from_root(path_from_root, client->root, path);
     char buf[2 * strlen(path_from_root) + 3];
     quote(buf, path_from_root);
-    const char* fmt = "DIR %s %o %d %d";
-    send(client, fmt, buf, 0777 & sb.st_mode, sb.st_uid, sb.st_gid);
+    size_t maxsize = ISO_8601_MAXSIZE;
+    char ctime[maxsize];
+    to_iso8601(ctime, maxsize, &sb.st_ctime);
+    const char* fmt = "DIR %s %o %d %d %s";
+    send(client, fmt, buf, 0777 & sb.st_mode, sb.st_uid, sb.st_gid, ctime);
     recv_ok(client);
 }
 
@@ -158,10 +171,15 @@ send_symlink(Client* client, const char* path)
     src[size] = '\0';
     char quoted_src[2 * strlen(src) + 3];
     quote(quoted_src, src);
+    size_t maxsize = ISO_8601_MAXSIZE;
+    char ctime[maxsize];
+    to_iso8601(ctime, maxsize, &sb.st_ctime);
 
-    const char* fmt = "SYMLINK %s %o %u %u %s";
+    const char* fmt = "SYMLINK %s %o %u %u %s %s";
     mode_t mode = 0777 & sb.st_mode;
-    send(client, fmt, quoted_path, mode, sb.st_uid, sb.st_gid, quoted_src);
+    uid_t uid = sb.st_uid;
+    gid_t gid = sb.st_gid;
+    send(client, fmt, quoted_path, mode, uid, gid, ctime, quoted_src);
     recv_ok(client);
 }
 
@@ -179,14 +197,15 @@ send_locked_file(Client* client, const char* path, FILE* fp)
         return;
     }
 
-    struct tm tm;
-    localtime_r(&sb.st_mtime, &tm);
-    size_t maxsize = strlen("yyyy-mm-ddThh:nn:ss") + 1;
+    size_t maxsize = ISO_8601_MAXSIZE;
     char mtime[maxsize];
-    strftime(mtime, maxsize, "%Y-%m-%dT%H:%M:%S", &tm);
+    to_iso8601(mtime, maxsize, &sb.st_mtime);
+    char ctime[maxsize];
+    to_iso8601(ctime, maxsize, &sb.st_ctime);
 
-    const char* fmt = "FILE %s %o %u %u %s";
-    send(client, fmt, buf, 0777 & sb.st_mode, sb.st_uid, sb.st_gid, mtime);
+    const char* fmt = "FILE %s %o %u %u %s %s";
+    mode_t mode = 0777 & sb.st_mode;
+    send(client, fmt, buf, mode, sb.st_uid, sb.st_gid, mtime, ctime);
 
     if (recv_changed(client) != 0) {
         return;
