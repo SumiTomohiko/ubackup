@@ -262,16 +262,34 @@ send_dir_entry(Client* client, const char* path, const char* name)
         perror("lstat failed");
         return;
     }
-    if (S_ISDIR(sb.st_mode)) {
+    mode_t mode = sb.st_mode;
+    if (S_ISREG(sb.st_mode)) {
+        send_file(client, fullpath);
+        return;
+    }
+    if (S_ISDIR(mode)) {
         send_dir(client, fullpath);
         backup_dir(client, fullpath);
         return;
     }
-    if (S_ISLNK(sb.st_mode)) {
+    if (S_ISLNK(mode)) {
         send_symlink(client, fullpath);
         return;
     }
-    send_file(client, fullpath);
+#define INFO(pred, desc) do { \
+    if (pred(mode)) { \
+        fprintf(stderr, "%s is a %s, skkiped.", fullpath, desc); \
+        return; \
+    } \
+} while (0)
+    INFO(S_ISBLK, "block special file");
+    INFO(S_ISCHR, "character special file");
+    INFO(S_ISFIFO, "pipe for FIFO special file");
+    INFO(S_ISSOCK, "socket");
+    INFO(S_ISWHT, "whiteout");
+#undef INFO
+    /* NOTREACHED */
+    assert(42 != 42);
 }
 
 static void
