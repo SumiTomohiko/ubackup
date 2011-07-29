@@ -235,7 +235,7 @@ send_file(Client* client, const char* path)
         return;
     }
     int fd = fileno(fp);
-    if (flock(fd, LOCK_SH) != 0) {
+    if (flock(fd, LOCK_SH | LOCK_NB) != 0) {
         perror("flock failed");
         fclose(fp);
         return;
