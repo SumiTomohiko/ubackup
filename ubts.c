@@ -389,10 +389,16 @@ skip_whitespace(const char** p)
 }
 
 static int
+is_command_char(int c)
+{
+    return isalpha(c) || (c == '_');
+}
+
+static int
 parse_type(Type* type, const char** p)
 {
     const char* from = *p;
-    skip(p, isalpha);
+    skip(p, is_command_char);
     size_t size = *p - from;
     char name[size + 1];
     memcpy(name, from, size);
@@ -591,6 +597,8 @@ parse(Command* cmd, const char* line)
         return parse_file(cmd, p);
     case CMD_SYMLINK:
         return parse_symlink(cmd, p);
+    case CMD_THANK_YOU:
+        return 0;
     default:
         break;
     }
@@ -602,24 +610,28 @@ run_command(Server* server, const char* line)
 {
     Command cmd;
     if (parse(&cmd, line) != 0) {
-        return false;
+        send_ng();
+        return true;
     }
     switch (cmd.type) {
     case CMD_BODY:
-        return do_body(server, &cmd);
-    case CMD_DIR:
-        return do_dir(server, &cmd);
-    case CMD_FILE:
-        return do_file(server, &cmd);
-    case CMD_SYMLINK:
-        return do_symlink(server, &cmd);
-    case CMD_THANK_YOU:
-        return true;
-    default:
+        do_body(server, &cmd);
         break;
+    case CMD_DIR:
+        do_dir(server, &cmd);
+        break;
+    case CMD_FILE:
+        do_file(server, &cmd);
+        break;
+    case CMD_SYMLINK:
+        do_symlink(server, &cmd);
+        break;
+    case CMD_THANK_YOU:
+    default:
+        return false;
     }
 
-    return false;
+    return true;
 }
 
 static bool
