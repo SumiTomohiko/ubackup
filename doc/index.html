@@ -26,7 +26,7 @@
         font-family: "mainfont";
       }
       kbd {
-        color: lime;
+        color: yellow;
         font-weight: bold;
       }
     </style>
@@ -34,10 +34,11 @@
   <body>
     <h1>Unnamed Backup Tool</h1>
     <section>
-      <h1>Description</h1>
+      <h1><a name="description">Description</a></h1>
       <p>Unnamed Backup Tool is a backup tool for Unix. Features are;</p>
       <ul>
         <li>backuping to a remote server or a local directory.</li>
+        <li>using SSH for remote backup.</li>
         <li>backuping into <code><var>year</var>-<var>month</var>-<var>day</var>T<var>hour</var>:<var>minute</var>:<var>second</var>,<var>millisecond</var></code> directory.</li>
         <li>incremental backup using hard links. If a file is unchanged, Unnamed
         Backup Tool makes a hard link to a previous one.</li>
@@ -50,12 +51,19 @@
       <ul>
         <li><a href="http://FreeBSD.org">FreeBSD</a> 8.2, 8.1</li>
         <li>x86</li>
+        <li>ssh (for remote backup)</li>
       </ul>
+    </section>
+    <section>
+      <h1>Download</h1>
+      <p>TODO: Decide here</p>
     </section>
     <section>
       <h1>How to Install</h1>
       <p>Read <code>INSTALL</code> and do;</p>
       <pre><code>$ <kbd>./configure &amp;&amp; make &amp;&amp; sudo make install</kbd></code></pre>
+      <p>If you want remote backup, you must install Unnamed Backup Tool to a
+      client and a server.</p>
     </section>
     <section>
       <h1>How to Use</h1>
@@ -66,7 +74,11 @@
         you must do;</p>
         <pre>$ <kbd>ubtc --hostname=example.com /etc /usr/home /backup/foo<kbd></pre>
         <p>You must give <code>--hostname</code> option to ubtc, and place a
-        destination directory at last.</p>
+        destination directory (this is a directory in a server, not in
+        localhost) at last.</p>
+        <p>ubtc trys to connect a server with ssh. If you must give a username
+        to ssh, you can give
+        <code>--hostname=<var>username</var>@example.com</code> option.</p>
       </section>
       <section>
         <h1>Local Backup</h1>
@@ -78,15 +90,61 @@
       </section>
     </section>
     <section>
-      <h1>Backup Directory</h1>
-      <p>TODO</p>
-    </section>
-    <section>
-      <h1>About <code>.meta</code> directory</h1>
-      <p>Each directory has <code>.meta</code> directory, which contains meta
-      data of files in the directory.</p>
-      <p>A meta data file of <code>foo</code> is <code>foo.meta</code>. This
-      file has mode, uid and gid in each line.</p>
+      <h1>Structure of Backup Directory</h1>
+      <section>
+        <h1>Timestamp Directory</h1>
+        <p>If you run <code>ubtc --hostname=example.com /etc /backup</code>,
+        Unnamed Backup Tool will make a directory of
+        <code>/backup/<var>timestamp</var></code> in example.com.
+        <var>timestamp</var> is in a form of
+        <code><var>year</var>-<var>month</var>-<var>day</var>T<var>hour</var>:<var>minute</var>:<var>second</var>,<var>millisecond</var></code> (this is told in
+        <a href="#description">Description</a> section). <code>/etc</code>
+        directory will be backuped at
+        <code>/backup/<var>timestamp</var>/etc</code>.</p>
+      </section>
+      <section>
+        <h1>Hard Links</h1>
+        <p>Assume that you backuped <code>/etc</code> directory twice, first
+        timestamp is <var>timestamp0</var>, second timestamp is
+        <var>timestamp1</var>. If a destination directory is
+        <code>/backup</code>, you have following two directory trees.</p>
+        <ul>
+          <li><code>/backup/<var>timestamp0</var>/etc</code></li>
+          <li><code>/backup/<var>timestamp1</var>/etc</code></li>
+        </ul>
+        <p>Your <code>/etc</code> directory may have <code>syslog.conf</code>,
+        so you may have following two files.</p>
+        <ul>
+          <li><code>/backup/<var>timestamp0</var>/etc/syslog.conf</code></li>
+          <li><code>/backup/<var>timestamp1</var>/etc/syslog.conf</code></li>
+        </ul>
+        <p>If you did not change <code>/etc/syslog.conf</code> between two
+        backups, <code>syslog.conf</code> under
+        <code><var>timestamp1</var></code> is a hard link to
+        <code>/backup/<var>timestamp0</var>/etc/syslog.conf</code>. You can see
+        this with <code>ls -i /backup/*/etc/syslog.conf</code>. Unnamed Backup
+        Tool trys to use less disk space in this way.</p>
+        <p>If you changed <code>/etc/syslog.conf</code> between two backups, new
+        one was copied to
+        <code>/backup/<var>timestamp1</var>/etc/syslog.conf</code> without using
+        a hard link, of course.</p>
+      </section>
+      <section>
+        <h1><code>.meta</code> Directory</h1>
+        <p>Each directory has <code>.meta</code> directory, which contains meta
+        data of files in the directory. A meta data file of <code>foo</code> is
+        <code>.meta/foo.meta</code>. This file has mode, uid and gid in each
+        line.</p>
+      </section>
+      <section>
+        <h1>Backup from <code>/</code> (root)</h1>
+        <p>Even if you do
+        <code>ubtc --hostname=example.com /usr/home /backup</code>, you will get
+        <code>/backup/<var>timestamp</var>/usr/home</code> directory, NOT
+        <code>/backup/<var>timestamp</var>/home</code> directory. Unnamed Backup
+        Tool also backups parent directoies of specified directories as well as
+        specified directories itself.</p>
+      </section>
     </section>
     <section>
       <h1>Protocol between a Server and a Client</h1>
