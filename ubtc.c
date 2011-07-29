@@ -410,7 +410,7 @@ exec_server(Client* client, char* cmd)
 static void
 usage(const char* ident)
 {
-    printf("%s [--command=cmd] [--root=root] dir ...\n", ident);
+    printf("%s [--command=cmd] [--root=root] src_dir ... dest_dir\n", ident);
 }
 
 static void
@@ -515,46 +515,169 @@ normalize_path(char* dest, size_t size, const char* path)
     remove_trailing_path_separators(to, path);
 }
 
+struct Pair {
+    const char* name;
+    const char* value;
+};
+
+typedef struct Pair Pair;
+
+static const char*
+get_value_of_pair(Pair* pairs, int size, const char* name)
+{
+    int result = !0;
+    int i;
+    for (i = 0; (result != 0) && (i < size); i++) {
+        result = strcmp(name, pairs[i].name);
+    }
+    return result == 0 ? pairs[i - 1].value : NULL;
+}
+
+static const char*
+get_template_value(const char* name, const char* hostname, const char* ubts_path, const char* dest_dir)
+{
+    Pair name2value[] = {
+        { "dest_dir", dest_dir },
+        { "hostname", hostname },
+        { "ubts_path", ubts_path }};
+    return get_value_of_pair(name2value, array_sizeof(name2value), name);
+}
+
+static void
+print_blank_template_value_error(const char* name)
+{
+    Pair name2opt[] = {
+        { "hostname", "hostname" },
+        { "ubts_path", "ubts-path" }};
+    const char* opt = get_value_of_pair(name2opt, array_sizeof(name2opt), name);
+    print_error("You must give --%s option.", opt);
+}
+
+static int
+replace_template(char* dest, const char* destend, const char* tmpl, const char* hostname, const char* ubts_path, const char* dest_dir)
+{
+    const char* p = tmpl;
+    char* q = dest;
+#define TEMPLATE_FINISH(p) (*(p) == '\0')
+#define DEST_FINISH(p) (destend <= (p))
+    while (!TEMPLATE_FINISH(p) && (*p != '{') && !DEST_FINISH(q)) {
+        *q = *p;
+        p++;
+        q++;
+    }
+    if (TEMPLATE_FINISH(p)) {
+        return 0;
+    }
+    if (DEST_FINISH(q)) {
+        print_error("Too long template");
+        return 1;
+    }
+#undef TEMPLATE_FINISH
+
+    p++;
+    const char* pend = strchr(p, '}');
+    if (pend == NULL) {
+        print_error("You must close a template variable with '}'");
+        return 1;
+    }
+    size_t size = pend - p;
+    char name[size + 1];
+    memcpy(name, p, size);
+    name[size] = '\0';
+    const char* value = get_template_value(name, hostname, ubts_path, dest_dir);
+    if (value == NULL) {
+        print_error("Unknown a template variable: %s", name);
+        return 1;
+    }
+    if (strcmp(value, "") == 0) {
+        print_blank_template_value_error(name);
+        return 1;
+    }
+    q = stpncpy(q, value, destend - q);
+    return replace_template(q, destend, pend + 1, hostname, ubts_path, dest_dir);
+}
+
+static int
+make_command(char* dest, size_t destsize, const char* tmpl, const char* hostname, const char* ubts_path, const char* dest_dir)
+{
+    return replace_template(dest, dest + destsize, tmpl, hostname, ubts_path, dest_dir);
+}
+
+const char* ssh_tmpl = "ssh {hostname} {ubts_path} {dest_dir}";
+const char* local_tmpl = "{ubts_path} {dest_dir}";
+
+static const char*
+select_template(const char* name)
+{
+    Pair name2tmpl[] = {
+        { "local", local_tmpl },
+        { "ssh", ssh_tmpl }};
+    return get_value_of_pair(name2tmpl, array_sizeof(name2tmpl), name);
+}
+
 int
 main(int argc, char* argv[])
 {
     struct option opts[] = {
-        { "command", 1, NULL, 'c' },
-        { "root", 1, NULL, 'r' },
+        { "command", required_argument, NULL, 'c' },
+        { "command-type", required_argument, NULL, 't' },
+        { "hostname", required_argument, NULL, 'h' },
+        { "root", required_argument, NULL, 'r' },
+        { "ubts-path", required_argument, NULL, 'u' },
         { NULL, 0, NULL, 0 }
     };
 
-    /**
-     * Parameters:
-     * username
-     * hostname
-     * ubts_path
-     * dest
-     */
-    char* cmd = "ssh tom@windsor ~/projects/UnnamedBackupTool/ubts /backup/nymphenburg";
+#define USAGE() usage(basename(argv[0]))
+    const char* hostname = "";
     const char* root = "/";
+    const char* tmpl = select_template("ssh");
+    const char* ubts_path = "ubts";
     int opt;
     while ((opt = getopt_long_only(argc, argv, "", opts, NULL)) != -1) {
         switch (opt) {
         case 'c':
-            cmd = optarg;
+            tmpl = optarg;
+            break;
+        case 'h':
+            hostname = optarg;
             break;
         case 'r':
             root = optarg;
             break;
+        case 't':
+            tmpl = select_template(optarg);
+            if (tmpl == NULL) {
+                print_error("command-type must be \"local\" or \"ssh\", not %s", optarg);
+                return 1;
+            }
+            break;
+        case 'u':
+            ubts_path = optarg;
+            break;
         default:
-            usage(basename(argv[0]));
+            USAGE();
             return 1;
         }
     }
+    if (argc - 1 <= optind) {
+        print_error("Give both source directories and a destination directory.");
+        USAGE();
+        return 1;
+    }
+#undef USAGE
 
     Client client;
     normalize_path(client.root, PATH_SIZE, root);
+    char cmd[4096];
+    const char* dest_dir = argv[argc - 1];
+    if (make_command(cmd, array_sizeof(cmd), tmpl, hostname, ubts_path, dest_dir) != 0) {
+        return 1;
+    }
 
     pid_t pid = exec_server(&client, cmd);
 
     int i;
-    for (i = optind; i < argc; i++) {
+    for (i = optind; i < argc - 1; i++) {
         char abs_path[PATH_SIZE];
         normalize_path(abs_path, array_sizeof(abs_path), argv[i]);
         backup_tree(&client, abs_path);

@@ -3,7 +3,7 @@
 
 name="foo"
 touch "${SRC_DIR}/${name}"
-eval ${CMD} "${SRC_DIR}"
+doit "${SRC_DIR}"
 test -f ${DEST_DIR}/*/${name}
 
 # vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh

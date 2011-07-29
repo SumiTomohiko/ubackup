@@ -3,7 +3,8 @@
 
 zero_or_die mkdir -p ${SRC_DIR}/foo ${SRC_DIR}/bar
 
-eval ${CMD} "${SRC_DIR}/foo" "${SRC_DIR}/bar"
+doit "${SRC_DIR}/foo" "${SRC_DIR}/bar"
+
 test -d ${DEST_DIR}/*/foo -a -d ${DEST_DIR}/*/bar
 
 # vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh

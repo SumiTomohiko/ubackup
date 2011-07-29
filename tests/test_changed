@@ -4,12 +4,12 @@
 name="foo.dat"
 src="${SRC_DIR}/${name}"
 zero_or_die touch "${src}"
-eval ${CMD} "${SRC_DIR}"
+doit "${SRC_DIR}"
 msg="foo"
 # TODO: Remove sleep(1) by get timestamp in microsecond.
 zero_or_die sleep 1
 zero_or_die echo "${msg}" > "${src}"
-eval ${CMD} "${SRC_DIR}"
+doit "${SRC_DIR}"
 test "`cat ${DEST_DIR}/*/${name}`" = "${msg}"
 
 # vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh

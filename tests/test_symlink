@@ -4,7 +4,7 @@
 name="foo.dat"
 src="/bar/baz/quux"
 zero_or_die ln -s "${src}" "${SRC_DIR}/${name}"
-eval ${CMD} "${SRC_DIR}"
+doit "${SRC_DIR}"
 test `readlink ${DEST_DIR}/*/${name}` = "${src}"
 
 # vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh

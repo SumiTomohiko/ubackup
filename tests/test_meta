@@ -10,7 +10,7 @@ meta="644
 ${uid}
 ${gid}"
 
-eval ${CMD} "${SRC_DIR}"
+doit "${SRC_DIR}"
 
 meta_path="${DEST_DIR}/*/.meta/${name}.meta"
 test "$(cat ${meta_path})" = "${meta}"

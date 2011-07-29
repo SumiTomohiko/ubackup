@@ -1,4 +1,9 @@
 
+doit()
+{
+  eval ${CMD} "$@" "${DEST_DIR}"
+}
+
 zero_or_die()
 {
   "$@"

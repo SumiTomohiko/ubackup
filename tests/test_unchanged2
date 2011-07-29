@@ -4,9 +4,9 @@
 name="foo.dat"
 src="${SRC_DIR}/${name}"
 zero_or_die touch "${src}"
-eval ${CMD} "${SRC_DIR}"
+doit "${SRC_DIR}"
 zero_or_die sleep 1
-eval ${CMD} "${SRC_DIR}"
+doit "${SRC_DIR}"
 test `ls -i ${DEST_DIR}/*/.meta/${name}.meta | awk '{ print $1 }' | sort -u | wc -l` = "1"
 
 # vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh

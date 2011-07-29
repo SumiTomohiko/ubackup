@@ -1,7 +1,8 @@
 
 . "${LIB}"
 
-eval zero_or_die ${CMD} "${SRC_DIR}"
+doit "${SRC_DIR}"
+
 ls "${DEST_DIR}" | grep -E --line-regexp "[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}T[[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2},[[:digit:]]{3}" >/dev/null
 
 # vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh

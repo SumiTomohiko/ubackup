@@ -4,7 +4,7 @@
 name="foo.dat"
 src="${SRC_DIR}/${name}"
 zero_or_die dd if=/dev/random of="${src}" bs=1024 count=1024 2>/dev/null
-eval ${CMD} "${SRC_DIR}"
+doit "${SRC_DIR}"
 cmp "${src}" ${DEST_DIR}/*/${name} >/dev/null
 
 # vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh

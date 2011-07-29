@@ -5,7 +5,7 @@ name="foo"
 src="${SRC_DIR}/${name}"
 zero_or_die mkdir -p "${src}"
 
-eval ${CMD} "${SRC_DIR}"
+doit "${SRC_DIR}"
 test -d ${DEST_DIR}/*/${name}
 
 # vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh
