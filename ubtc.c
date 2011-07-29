@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <dirent.h>
+#include <errno.h>
 #include <getopt.h>
 #include <libgen.h>
 #include <stdarg.h>
@@ -28,13 +29,40 @@ struct Client {
 
 typedef struct Client Client;
 
+static void
+print_error(const char* fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    FILE* out = stderr;
+    vfprintf(out, fmt, ap);
+    fprintf(out, "\n");
+    va_end(ap);
+}
+
+static void
+print_errno(const char* msg, int e, const char* info)
+{
+    print_error("%s: %s: %s", msg, strerror(e), info);
+}
+
+#define PRINT_ERRNO(msg, info) print_errno((msg), errno, (info))
+
+static void
+print_errno2(const char* msg, int e)
+{
+    print_error("%s: %s", msg, strerror(e));
+}
+
+#define PRINT_ERRNO2(msg) print_errno2((msg), errno)
+
 static int
 recv_changed(Client* client)
 {
     size_t size = 4096;
     char buf[size];
     if (fgets(buf, size, client->in) == NULL) {
-        perror("fgets failed");
+        PRINT_ERRNO2("Receiving \"CHANGED\" failed");
         abort();
     }
     const char* expected = "CHANGED";
@@ -47,7 +75,7 @@ recv_ok(Client* client)
     size_t size = 4096;
     char buf[size];
     if (fgets(buf, size, client->in) == NULL) {
-        perror("fgets failed");
+        PRINT_ERRNO2("Receiving \"OK\" failed");
         abort();
     }
 #if 0
@@ -111,7 +139,7 @@ send_dir(Client* client, const char* path)
 {
     struct stat sb;
     if (lstat(path, &sb) != 0) {
-        perror("lstat failed");
+        PRINT_ERRNO("lstat directory failed", path);
         return;
     }
     char path_from_root[strlen(path) + 1];
@@ -137,7 +165,7 @@ backup_parent(Client* client, const char* path)
 
     const char* parent = dirname(path);
     if (parent == NULL) {
-        perror("dirname failed");
+        PRINT_ERRNO("dirname failed", path);
         return;
     }
     char dir[strlen(parent) + 1];
@@ -157,7 +185,7 @@ send_symlink(Client* client, const char* path)
 
     struct stat sb;
     if (lstat(path, &sb) != 0) {
-        perror("lstat failed");
+        PRINT_ERRNO("lstat symlink failed", path);
         return;
     }
 
@@ -165,7 +193,7 @@ send_symlink(Client* client, const char* path)
     char src[src_size];
     ssize_t size = readlink(path, src, src_size);
     if (size == -1) {
-        perror("readlink failed");
+        PRINT_ERRNO("readlink failed", path);
         return;
     }
     src[size] = '\0';
@@ -193,7 +221,7 @@ send_locked_file(Client* client, const char* path, FILE* fp)
 
     struct stat sb;
     if (lstat(path, &sb) != 0) {
-        perror("lstat failed");
+        PRINT_ERRNO("lstat file failed", path);
         return;
     }
 
@@ -231,18 +259,18 @@ send_file(Client* client, const char* path)
 {
     FILE* fp = fopen(path, "r");
     if (fp == NULL) {
-        perror(path);
+        PRINT_ERRNO("fopen failed", path);
         return;
     }
     int fd = fileno(fp);
     if (flock(fd, LOCK_SH | LOCK_NB) != 0) {
-        perror("flock failed");
+        PRINT_ERRNO("flock to lock failed", path);
         fclose(fp);
         return;
     }
     send_locked_file(client, path, fp);
     if (flock(fd, LOCK_UN) != 0) {
-        perror("flock failed");
+        PRINT_ERRNO("flock to unlock failed", path);
     }
     fclose(fp);
 }
@@ -259,7 +287,7 @@ send_dir_entry(Client* client, const char* path, const char* name)
     sprintf(fullpath, "%s/%s", path, name);
     struct stat sb;
     if (lstat(fullpath, &sb) != 0) {
-        perror("lstat failed");
+        PRINT_ERRNO("lstat directory entry failed", fullpath);
         return;
     }
     mode_t mode = sb.st_mode;
@@ -297,7 +325,7 @@ backup_dir(Client* client, const char* path)
 {
     DIR* dirp = opendir(path);
     if (dirp == NULL) {
-        perror(path);
+        PRINT_ERRNO("opendir failed", path);
         return;
     }
     struct dirent* e;
@@ -318,7 +346,7 @@ static void
 create_pipe(int fildes[2])
 {
     if (pipe(fildes) != 0) {
-        perror("pipe failed");
+        PRINT_ERRNO2("pipe failed");
         abort();
     }
 }
@@ -330,7 +358,7 @@ static void
 dup_fd(int old, int new)
 {
     if (dup2(old, new) == -1) {
-        perror("dup2 failed");
+        PRINT_ERRNO2("dup2 failed");
         abort();
     }
 }
@@ -340,7 +368,7 @@ do_fdopen(int fd, const char* mode)
 {
     FILE* fp = fdopen(fd, mode);
     if (fp == NULL) {
-        perror("fdopen failed");
+        PRINT_ERRNO2("fdopen failed");
         abort();
     }
     return fp;
@@ -356,7 +384,7 @@ exec_server(Client* client, char* cmd)
 
     pid_t pid = fork();
     if (pid == -1) {
-        perror("fork failed");
+        PRINT_ERRNO2("fork failed");
         abort();
     }
     if (0 < pid) {
@@ -372,7 +400,8 @@ exec_server(Client* client, char* cmd)
     close(s2c[READ]);
     char* argv[] = { "/bin/sh", "-c", cmd, NULL };
     if (execv(argv[0], argv) == -1) {
-        perror("execv failed");
+        PRINT_ERRNO2("execv failed");
+        abort();
     }
     /* NOTREACHED */
     return 0;
