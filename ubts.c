@@ -55,10 +55,10 @@ print_errno(const char* msg, int e, const char* info)
 {
     const char* s = strerror(e);
     if (info == NULL) {
-        print_error("%s - %s", msg, s);
+        print_error("%s: %s", msg, s);
         return;
     }
-    print_error("%s - %s - %s", msg, s, info);
+    print_error("%s: %s: %s", msg, s, info);
 }
 
 struct Server {
