@@ -23,7 +23,7 @@ do
   export SRC_DIR="${tmp_dir}/src"
   export DEST_DIR="${tmp_dir}/dest"
   zero_or_die mkdir -p "${SRC_DIR}" "${DEST_DIR}"
-  export CMD="${dir}/ubtc --ubts-path \"${dir}/ubts\" --command-type local --root \"${SRC_DIR}\""
+  export CMD="${dir}/ubtc --ubts-path \"${dir}/ubts\" --local --root \"${SRC_DIR}\""
   sh ${sh_opt} "${t}" || echo "${t}: NG"
   zero_or_die rm -rf "${tmp_dir}"
 done

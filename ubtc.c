@@ -604,18 +604,6 @@ make_command(char* dest, size_t destsize, const char* tmpl, const char* hostname
     return replace_template(dest, dest + destsize, tmpl, hostname, ubts_path, dest_dir);
 }
 
-const char* ssh_tmpl = "ssh {hostname} {ubts_path} {dest_dir}";
-const char* local_tmpl = "{ubts_path} {dest_dir}";
-
-static const char*
-select_template(const char* name)
-{
-    Pair name2tmpl[] = {
-        { "local", local_tmpl },
-        { "ssh", ssh_tmpl }};
-    return get_value_of_pair(name2tmpl, array_sizeof(name2tmpl), name);
-}
-
 static void
 print_version()
 {
@@ -627,8 +615,8 @@ main(int argc, char* argv[])
 {
     struct option opts[] = {
         { "command", required_argument, NULL, 'c' },
-        { "command-type", required_argument, NULL, 't' },
         { "hostname", required_argument, NULL, 'h' },
+        { "local", no_argument, NULL, 'l' },
         { "root", required_argument, NULL, 'r' },
         { "ubts-path", required_argument, NULL, 'u' },
         { "version", no_argument, NULL, 'v' },
@@ -638,7 +626,7 @@ main(int argc, char* argv[])
 #define USAGE() usage(basename(argv[0]))
     const char* hostname = "";
     const char* root = "/";
-    const char* tmpl = select_template("ssh");
+    const char* tmpl = "ssh {hostname} {ubts_path} {dest_dir}";
     const char* ubts_path = "ubts";
     int opt;
     while ((opt = getopt_long(argc, argv, "v", opts, NULL)) != -1) {
@@ -649,15 +637,11 @@ main(int argc, char* argv[])
         case 'h':
             hostname = optarg;
             break;
+        case 'l':
+            tmpl = "{ubts_path} {dest_dir}";
+            break;
         case 'r':
             root = optarg;
-            break;
-        case 't':
-            tmpl = select_template(optarg);
-            if (tmpl == NULL) {
-                print_error("command-type must be \"local\" or \"ssh\", not %s", optarg);
-                return 1;
-            }
             break;
         case 'u':
             ubts_path = optarg;
