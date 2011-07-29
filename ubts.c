@@ -1,7 +1,9 @@
+#include "config.h"
 #include <assert.h>
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
+#include <getopt.h>
 #include <libgen.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -715,9 +717,30 @@ set_prev_dir(char* dest, size_t size, const char* backup_dir, const char* name)
     join(dest, size, backup_dir, name);
 }
 
-int
-main(int argc, const char* argv[])
+static void
+print_version()
 {
+    puts("Unnamed Backup Tool Server " VERSION);
+}
+
+int
+main(int argc, char* argv[])
+{
+    struct option opts[] = {
+        { "version", no_argument, NULL, 'v' },
+        { NULL, 0, NULL, 0 }
+    };
+    int opt;
+    while ((opt = getopt_long(argc, argv, "v", opts, NULL)) != -1) {
+        switch (opt) {
+        case 'v':
+            print_version();
+            return 0;
+        default:
+            return 1;
+        }
+    }
+
     const char* s = basename(argv[0]);
     if (argc < 2) {
         print_error("Usage: %s <backup_dir>", s);
@@ -727,7 +750,7 @@ main(int argc, const char* argv[])
     strcpy(ident, s);
     openlog(ident, LOG_PID, LOG_LOCAL0);
 
-    const char* backup_dir = argv[1];
+    const char* backup_dir = argv[optind];
     size_t maxsize = strlen("yyyy-mm-ddThh:nn:ss,000");
     char prev[maxsize + 1];
     if (!find_prev(prev, backup_dir)) {

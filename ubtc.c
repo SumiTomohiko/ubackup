@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>
@@ -615,6 +616,12 @@ select_template(const char* name)
     return get_value_of_pair(name2tmpl, array_sizeof(name2tmpl), name);
 }
 
+static void
+print_version()
+{
+    puts("Unnamed Backup Tool Client " VERSION);
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -624,6 +631,7 @@ main(int argc, char* argv[])
         { "hostname", required_argument, NULL, 'h' },
         { "root", required_argument, NULL, 'r' },
         { "ubts-path", required_argument, NULL, 'u' },
+        { "version", no_argument, NULL, 'v' },
         { NULL, 0, NULL, 0 }
     };
 
@@ -633,7 +641,7 @@ main(int argc, char* argv[])
     const char* tmpl = select_template("ssh");
     const char* ubts_path = "ubts";
     int opt;
-    while ((opt = getopt_long_only(argc, argv, "", opts, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "v", opts, NULL)) != -1) {
         switch (opt) {
         case 'c':
             tmpl = optarg;
@@ -654,6 +662,9 @@ main(int argc, char* argv[])
         case 'u':
             ubts_path = optarg;
             break;
+        case 'v':
+            print_version();
+            return 0;
         default:
             USAGE();
             return 1;
