@@ -27,6 +27,7 @@
       }
       kbd {
         color: lime;
+        font-weight: bold;
       }
     </style>
     <title>Unnamed Backup Tool</title>
@@ -34,44 +35,51 @@
     <h1>Unnamed Backup Tool</h1>
     <section>
       <h1>Description</h1>
-      <p>Unnamed Backup Tool is a backup tool. Features are;</p>
+      <p>Unnamed Backup Tool is a backup tool for Unix. Features are;</p>
       <ul>
-        <li>backing up to a remote server.</li>
-        <li>backing up into <code><var>year</var>-<var>month</var>-<var>day</var>_<var>hour</var>:<var>minute</var>:<var>second</var>.<var>millisecond</var></code> directory.</li>
-        <li>incremental backup using hard links.</li>
-        <li>backing up not only files itself, but also metadata such as
-        permissions and owners.</li>
+        <li>backuping to a remote server or a local directory.</li>
+        <li>backuping into <code><var>year</var>-<var>month</var>-<var>day</var>T<var>hour</var>:<var>minute</var>:<var>second</var>,<var>millisecond</var></code> directory.</li>
+        <li>incremental backup using hard links. If a file is unchanged, Unnamed
+        Backup Tool makes a hard link to a previous one.</li>
+        <li>backuping not only files itself, but also metadata such as
+        permissions and owners under <code>.meta</code> directory.</li>
       </ul>
-    </section>
-    <section>
-      <h1>How does it Work?</h1>
-      <p>If a file is unchanged, Unnamed Backup Tool makes a hard link to a
-      previous one.</p>
-      <p>Unnamed Backup Tool also stores meta data of a file under
-      <code>.meta</code> directory.</p>
     </section>
     <section>
       <h1>Requirements</h1>
       <ul>
-        <li><a href="http://FreeBSD.org">FreeBSD</a> 8.2</li>
-        <li><a href="http://neko-daisuki.ddo.jp/~SumiTomohiko/yog/index.html">
-        Yog</a> 0.0.11</li>
+        <li><a href="http://FreeBSD.org">FreeBSD</a> 8.2, 8.1</li>
+        <li>x86</li>
       </ul>
     </section>
     <section>
-      <h1>Install</h1>
+      <h1>How to Install</h1>
+      <p>Read <code>INSTALL</code> and do;</p>
+      <pre><code>$ <kbd>./configure &amp;&amp; make &amp;&amp; sudo make install</kbd></code></pre>
+    </section>
+    <section>
+      <h1>How to Use</h1>
       <section>
-        <h1>Into a Server</h1>
-        <pre><code>$ <kbd>make server</kbd></code></pre>
+        <h1>Remote Backup</h1>
+        <p>If you want to backup <code>/etc</code> and <code>/usr/home</code> in
+        localhost to <code>/backup/foo</code> in <code>example.com</code>,
+        you must do;</p>
+        <pre>$ <kbd>ubtc --hostname=example.com /etc /usr/home /backup/foo<kbd></pre>
+        <p>You must give <code>--hostname</code> option to ubtc, and place a
+        destination directory at last.</p>
       </section>
       <section>
-        <h1>Into a Client</h1>
-        <pre><code>$ <kbd>make client</kbd></code></pre>
+        <h1>Local Backup</h1>
+        <p>If you want to backup <code>/etc</code> and <code>/usr/home</code> in
+        localhost to <code>/backup/foo</code> in localhost, you must do;</p>
+        <pre>$ <kbd>ubtc --local /etc /usr/home /backup/foo<kbd></pre>
+        <p>You must give <code>--local</code> option to ubtc, and place a
+        destination directory at last.</p>
       </section>
     </section>
     <section>
-      <h1>Run</h1>
-      <pre><code>$ <kbd>ubtc</kbd></code></pre>
+      <h1>Backup Directory</h1>
+      <p>TODO</p>
     </section>
     <section>
       <h1>About <code>.meta</code> directory</h1>
@@ -128,10 +136,15 @@
           <p><code>OK</code> or <code>NG</code>.</p>
         </section>
       </section>
+      <section>
+        <h1><code>THANK_YOU</code> command</h1>
+        <section><h1>Format</h1><p><code>THANK_YOU</code></p></section>
+        <section><h1>Response</h1><p>Nothing.</p></section>
+      </section>
     </section>
     <section>
       <h1>Author</h1>
-      <p>The author of FileTomograpy is
+      <p>The author of Unnamed Backup Tool is
       <a href="http://neko-daisuki.ddo.jp/~SumiTomohiko">SumiTomohiko</a>.</p>
   </body>
 </html>
