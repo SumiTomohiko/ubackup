@@ -278,7 +278,7 @@ send_dir_entry(Client* client, const char* path, const char* name)
     }
 #define INFO(pred, desc) do { \
     if (pred(mode)) { \
-        fprintf(stderr, "%s is a %s, skkiped.", fullpath, desc); \
+        fprintf(stderr, "%s is a %s, skkiped.\n", fullpath, desc); \
         return; \
     } \
 } while (0)
