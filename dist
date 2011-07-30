@@ -1,0 +1,51 @@
+#!/bin/sh
+
+zero_or_die()
+{
+  "$@"
+  if [ $? != 0 ]; then
+    echo "Failed: $@"
+    exit 1
+  fi
+}
+
+dist="AUTHORS
+COPYING
+ChangeLog
+INSTALL
+Makefile.am
+Makefile.in
+NEWS
+README
+aclocal.m4
+autogen.sh
+compile
+config.h.in
+configure
+configure.ac
+depcomp
+doc/Inconsolata.otf
+doc/index.html
+install-sh
+missing
+ubtc.c
+ubts.c"
+
+mark="VERSION = "
+version=`grep "^${mark}" < Makefile | sed -e "s/^${mark}//"`
+name="UnnamedBackupTool-${version}"
+
+zero_or_die rm -rf "${name}"
+zero_or_die mkdir -p "${name}"
+
+for f in ${dist}
+do
+  dir="${name}/`dirname ${f}`"
+  zero_or_die mkdir -p "${dir}"
+  zero_or_die cp -p "${f}" "${dir}"
+done
+
+zero_or_die tar cf - "${name}" | zero_or_die xz --compress > "${name}.tar.xz"
+zero_or_die rm -rf "${name}"
+
+# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2
