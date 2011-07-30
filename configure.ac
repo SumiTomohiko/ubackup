@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.68])
 AC_INIT([UnnamedBackupTool], [0.0.1], [SumiTomohiko@neko-daisuki.ddo.jp])
-AM_INIT_AUTOMAKE([dist-bzip2])
+AM_INIT_AUTOMAKE([dist-xz])
 AC_CONFIG_SRCDIR([ubtc.c])
 AC_CONFIG_HEADERS([config.h])
 
