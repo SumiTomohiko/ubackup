@@ -34,7 +34,7 @@
   <body>
     <h1>Unnamed Backup Tool</h1>
     <section>
-      <h1><a name="description">Description</a></h1>
+      <h1><a href="#description" name="description">*</a> Description</h1>
       <p>Unnamed Backup Tool is a backup tool for Unix. Features are;</p>
       <ul>
         <li>backuping to a remote server or a local directory.</li>
@@ -47,7 +47,7 @@
       </ul>
     </section>
     <section>
-      <h1>Requirements</h1>
+      <h1><a href="#requirements" name="requirements">*</a> Requirements</h1>
       <ul>
         <li><a href="http://FreeBSD.org">FreeBSD</a> 8.2, 8.1</li>
         <li>x86</li>
@@ -55,20 +55,24 @@
       </ul>
     </section>
     <section>
-      <h1>Download</h1>
+      <h1><a href="#download" name="download">*</a> Download</h1>
       <p>TODO: Decide here</p>
     </section>
     <section>
-      <h1>How to Install</h1>
+      <h1>
+        <a href="#how-to-install" name="how-to-install">*</a> How to Install
+      </h1>
       <p>Read <code>INSTALL</code> and do;</p>
       <pre><code>$ <kbd>./configure &amp;&amp; make &amp;&amp; sudo make install</kbd></code></pre>
       <p>If you want remote backup, you must install Unnamed Backup Tool to a
       client and a server.</p>
     </section>
     <section>
-      <h1>How to Use</h1>
+      <h1><a href="#how-to-use" name="how-to-use">*</a> How to Use</h1>
       <section>
-        <h1>Remote Backup</h1>
+        <h1>
+          <a href="#remote-backup" name="remote-backup">*</a> Remote Backup
+        </h1>
         <p>If you want to backup <code>/etc</code> and <code>/usr/home</code> in
         localhost to <code>/backup/foo</code> in <code>example.com</code>,
         you must do;</p>
@@ -81,7 +85,7 @@
         <code>--hostname=<var>username</var>@example.com</code> option.</p>
       </section>
       <section>
-        <h1>Local Backup</h1>
+        <h1><a href="#local-backup" name="local-backup">*</a> Local Backup</h1>
         <p>If you want to backup <code>/etc</code> and <code>/usr/home</code> in
         localhost to <code>/backup/foo</code> in localhost, you must do;</p>
         <pre>$ <kbd>ubtc --local /etc /usr/home /backup/foo<kbd></pre>
@@ -90,9 +94,14 @@
       </section>
     </section>
     <section>
-      <h1>Structure of Backup Directory</h1>
+      <h1>
+        <a href="#structure-of-backup-directory" name="structure-of-backup-directory">*</a> Structure of Backup Directory
+      </h1>
       <section>
-        <h1>Timestamp Directory</h1>
+        <h1>
+          <a href="#timestamp-directory" name="timestamp-directory">*</a>
+          Timestamp Directory
+        </h1>
         <p>If you run <code>ubtc --hostname=example.com /etc /backup</code>,
         Unnamed Backup Tool will make a directory of
         <code>/backup/<var>timestamp</var></code> in example.com.
@@ -103,7 +112,7 @@
         <code>/backup/<var>timestamp</var>/etc</code>.</p>
       </section>
       <section>
-        <h1>Hard Links</h1>
+        <h1><a href="#hard-links" name="hard-links">*</a> Hard Links</h1>
         <p>Assume that you backuped <code>/etc</code> directory twice, first
         timestamp is <var>timestamp0</var>, second timestamp is
         <var>timestamp1</var>. If a destination directory is
@@ -130,14 +139,20 @@
         a hard link, of course.</p>
       </section>
       <section>
-        <h1><code>.meta</code> Directory</h1>
+        <h1>
+          <a href="#meta-directory" name="meta-directory">*</a>
+          <code>.meta</code> Directory
+        </h1>
         <p>Each directory has <code>.meta</code> directory, which contains meta
         data of files in the directory. A meta data file of <code>foo</code> is
         <code>.meta/foo.meta</code>. This file has mode, uid and gid in each
         line.</p>
       </section>
       <section>
-        <h1>Backup from <code>/</code> (root)</h1>
+        <h1>
+          <a href="#backup-from-root" name="backup-from-root">*</a>
+          Backup from <code>/</code> (root)
+        </h1>
         <p>Even if you do
         <code>ubtc --hostname=example.com /usr/home /backup</code>, you will get
         <code>/backup/<var>timestamp</var>/usr/home</code> directory, NOT
@@ -147,7 +162,10 @@
       </section>
     </section>
     <section>
-      <h1>Protocol between a Server and a Client</h1>
+      <h1>
+        <a href="#protocol-between-a-server-and-a-client" name="protocol-between-a-server-and-a-client">*</a>
+        Protocol between a Server and a Client
+      </h1>
       <section>
         <h1><code>DIR</code> command</h1>
         <section>
@@ -201,7 +219,7 @@
       </section>
     </section>
     <section>
-      <h1>Author</h1>
+      <h1><a href="#author" name="author">*</a> Author</h1>
       <p>The author of Unnamed Backup Tool is
       <a href="http://neko-daisuki.ddo.jp/~SumiTomohiko">SumiTomohiko</a>.</p>
   </body>
