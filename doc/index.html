@@ -166,11 +166,12 @@
         <a href="#protocol-between-a-server-and-a-client" name="protocol-between-a-server-and-a-client">*</a>
         Protocol between a Server and a Client
       </h1>
+      <p>Unnamed Backup Tool uses CRLF.</p>
       <section>
         <h1><code>DIR</code> command</h1>
         <section>
           <h1>Format</h1>
-          <p><code>DIR <var>name</var> <var>mode</var> <var>uid</var> <var>gid</var></code></p>
+          <p><code>DIR <var>name</var> <var>mode</var> <var>uid</var> <var>gid</var> <var>ctime</var></code></p>
         </section>
         <section>
           <h1>Response</h1>
@@ -181,12 +182,17 @@
         <h1><code>FILE</code> command</h1>
         <section>
           <h1>Format</h1>
-          <p><code>FILE <var>name</var> <var>mode</var> <var>uid</var> <var>gid</var> <var>timestamp</var></code></p>
+          <p><code>FILE <var>name</var> <var>mode</var> <var>uid</var> <var>gid</var> <var>mtime</var> <var>ctime</var></code></p>
         </section>
         <section>
           <h1>Response</h1>
           <p><code>CHANGED</code>, <code>UNCHANGED</code> or <code>NG</code>.
           </p>
+        </section>
+        <section>
+          <h1>Description</h1>
+          <p>Servers must memorize <var>name</var> for next <code>BODY</code>
+          command.</p>
         </section>
       </section>
       <section>
@@ -194,18 +200,22 @@
         <section>
           <h1>Format</h1>
           <p><code>BODY <var>size</var></code></p>
-          <p>File body follows after a CRLF.</p>
         </section>
         <section>
           <h1>Response</h1>
           <p><code>OK</code> or <code>NG</code>.</p>
+        </section>
+        <section>
+          <h1>Description</h1>
+          <p>File body follows after a CRLF. Clients must specify filename with
+          FILE command previously.</p>
         </section>
       </section>
       <section>
         <h1><code>SYMLINK</code> command</h1>
         <section>
           <h1>Format</h1>
-          <p><code>SYMLINK <var>name</var> <var>mode</var> <var>uid</var> <var>gid</var> <var>src</var></code></p>
+          <p><code>SYMLINK <var>name</var> <var>mode</var> <var>uid</var> <var>gid</var> <var>ctime</var> <var>src</var></code></p>
         </section>
         <section>
           <h1>Response</h1>
@@ -215,7 +225,16 @@
       <section>
         <h1><code>THANK_YOU</code> command</h1>
         <section><h1>Format</h1><p><code>THANK_YOU</code></p></section>
-        <section><h1>Response</h1><p>Nothing.</p></section>
+        <section>
+          <h1>Response</h1>
+          <p>Nothing. It does not mean that a server response
+          <code>Nothing</code> command. It means that a server will disconnect
+          soon without response.</p>
+        </section>
+        <section>
+          <h1>Description</h1>
+          <p>Clients declare end of connection with this command.</p>
+        </section>
       </section>
     </section>
     <section>
