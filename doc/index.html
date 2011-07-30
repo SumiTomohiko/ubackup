@@ -131,9 +131,8 @@
         <p>If you did not change <code>/etc/syslog.conf</code> between two
         backups, <code>syslog.conf</code> under
         <code><var>timestamp1</var></code> is a hard link to
-        <code>/backup/<var>timestamp0</var>/etc/syslog.conf</code>. You can see
-        this with <code>ls -i /backup/*/etc/syslog.conf</code>. Unnamed Backup
-        Tool trys to use less disk space in this way.</p>
+        <code>/backup/<var>timestamp0</var>/etc/syslog.conf</code>. Unnamed
+        Backup Tool trys to use less disk space in this way.</p>
         <p>If you changed <code>/etc/syslog.conf</code> between two backups, new
         one was copied to
         <code>/backup/<var>timestamp1</var>/etc/syslog.conf</code> without using
