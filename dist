@@ -24,6 +24,7 @@ config.h.in
 configure
 configure.ac
 depcomp
+dist
 doc/Inconsolata.otf
 doc/index.html
 install-sh
