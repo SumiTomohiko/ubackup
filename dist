@@ -29,6 +29,21 @@ doc/Inconsolata.otf
 doc/index.html
 install-sh
 missing
+run_tests
+tests/lib
+tests/test_backup_name
+tests/test_changed
+tests/test_dir
+tests/test_dir_meta
+tests/test_file_body
+tests/test_first_backup
+tests/test_meta
+tests/test_meta2
+tests/test_meta3
+tests/test_symlink
+tests/test_unchanged
+tests/test_unchanged2
+tests/test_unchanged3
 ubtc.c
 ubts.c"
 
