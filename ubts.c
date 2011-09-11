@@ -664,10 +664,19 @@ parse(Command* cmd, const char* line)
     return 1;
 }
 
+#define BACKUP_MARK '('
+
+static bool
+is_backup_dir(const char* name)
+{
+    char c = name[0];
+    return isdigit(c) || (c == BACKUP_MARK);
+}
+
 static int
 count_entry(const char* name)
 {
-    return ((strcmp(name, ".") == 0) || (strcmp(name, "..") == 0)) ? 0 : 1;
+    return is_backup_dir(name) ? 1 : 0;
 }
 
 static int
@@ -742,16 +751,24 @@ remove_dir(const char* path)
     return true;
 }
 
-static int
-compar(const void* s1, const void* s2)
+static const char*
+find_backup_name(const char* p)
 {
-    return - strcmp(*((const char**)s1), *((const char**)s2));
+    return p + (p[0] == BACKUP_MARK ? 1 : 0);
+}
+
+static int
+compar(const void* p, const void* q)
+{
+    const char* s1 = find_backup_name(*((const char**)p));
+    const char* s2 = find_backup_name(*((const char**)q));
+    return - strcmp(s1, s2);
 }
 
 static int
 update_name(const char* name, const char** p)
 {
-    if ((strcmp(name, ".") == 0) || (strcmp(name, "..") == 0)) {
+    if (!is_backup_dir(name)) {
         return 0;
     }
     *p = name;
@@ -860,16 +877,6 @@ make_timestamp(char* dest, size_t maxsize)
 static void
 update_prev(const char* name, struct timeval* last, char* buf, size_t bufsize)
 {
-    bool found = false;
-    const char* ignored[] = { ".", "..", "meta" };
-    int i;
-    for (i = 0; !found && (i < array_sizeof(ignored)); i++) {
-        found = strcmp(ignored[i], name) == 0 ? true : false;
-    }
-    if (found) {
-        return;
-    }
-
     char timestamp[strlen(name) + 1];
     strcpy(timestamp, name);
     char* p = strchr(timestamp, ',');
@@ -901,6 +908,7 @@ find_prev(char* dest, const char* dir)
         return false;
     }
     char buf[PATH_SIZE];
+    buf[0] = '\0';
     struct timeval last = { 0, 0 };
     struct dirent* e;
     while ((e = readdir(dirp)) != NULL) {
@@ -925,6 +933,16 @@ static void
 print_version()
 {
     puts("Unnamed Backup Tool Server " VERSION);
+}
+
+static void
+do_rename(const char* from, const char* to)
+{
+    if (rename(from, to) != 0) {
+        print_errno("rename failed", errno, from);
+        return;
+    }
+    print_info("Renamed: %s -> %s", from, to);
 }
 
 int
@@ -968,10 +986,12 @@ main(int argc, char* argv[])
 
     Server server;
     server.backup_dir = backup_dir;
-    join(server.dest_dir, PATH_SIZE, backup_dir, timestamp);
+    char tmpdir[PATH_SIZE];
+    snprintf(tmpdir, PATH_SIZE, "(%s)", timestamp);
+    join(server.dest_dir, PATH_SIZE, backup_dir, tmpdir);
     set_prev_dir(server.prev_dir, PATH_SIZE, backup_dir, prev);
     server.current_file[0] = '\0';
-    print_info("New backup: %s", server.dest_dir);
+    print_info("New backup (temporary): %s", server.dest_dir);
     print_info("Prev backup: %s", server.prev_dir);
     if (!make_backup_dir(server.dest_dir)) {
         return 1;
@@ -985,6 +1005,9 @@ main(int argc, char* argv[])
         print_info("Recv: %s", buf);
         status = run_command(&server, buf);
     }
+    char dir[PATH_SIZE];
+    join(dir, PATH_SIZE, backup_dir, timestamp);
+    do_rename(server.dest_dir, dir);
 
     closelog();
 
