@@ -1,0 +1,29 @@
+
+. "${LIB}"
+
+name="foo"
+src="${SRC_DIR}/${name}"
+zero_or_die touch "${src}"
+
+out="$(doit --print-statistics "${SRC_DIR}")"
+python -c "from sys import exit
+from re import match
+
+if match(r\"\"\"Backup name: .+
+Number of files: 1
+Number of changed files: 1
+Number of unchanged files: 0
+Number of skipped files: 0
+Send bytes: 0
+Number of symbolic links: 0
+Number of directories: 0
+Start time: [-:\\w]+
+End time: [-:\\w]+
+Time: \\d+\\[sec\\] \\(\\d+\\[hour\\] \\d+\\[min\\] \\d\\[sec\\]\\)
+Disk total: \\d+\\[Gbyte\\]
+Disk usage: \\d+\\[Gbyte\\] \\(\\d+%\\)
+Disk available: \\d+\\[Gbyte\\] \\(\\d+%\\)\"\"\", \"\"\"${out}\"\"\") is None:
+    exit(1)
+"
+
+# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh

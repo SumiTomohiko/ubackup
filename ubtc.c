@@ -5,18 +5,22 @@
 #include <getopt.h>
 #include <libgen.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/file.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 #define PATH_SIZE 4096
+#define BUF_SIZE PATH_SIZE
 
 #define TRACE(fmt, ...) do { \
     fprintf(stderr, "%s:%u " fmt "\n", __FILE__, __LINE__, __VA_ARGS__); \
@@ -26,6 +30,15 @@ struct Client {
     FILE* in;
     FILE* out;
     char root[PATH_SIZE];
+    struct {
+        int num_files;
+        int num_changed;
+        uint64_t send_bytes;
+        int num_skipped;
+        int num_dir;
+        int num_symlinks;
+        time_t start_time;
+    } stat;
 };
 
 typedef struct Client Client;
@@ -239,6 +252,7 @@ send_locked_file(Client* client, const char* path, FILE* fp)
     if (recv_changed(client) != 0) {
         return;
     }
+    client->stat.num_changed++;
 
     size_t size = sb.st_size;
     send(client, "BODY %zu", size);
@@ -253,6 +267,7 @@ send_locked_file(Client* client, const char* path, FILE* fp)
         rest -= nbytes;
     }
     recv_ok(client);
+    client->stat.send_bytes += size;
 }
 
 static void
@@ -293,18 +308,22 @@ send_dir_entry(Client* client, const char* path, const char* name)
     }
     mode_t mode = sb.st_mode;
     if (S_ISREG(sb.st_mode)) {
+        client->stat.num_files++;
         send_file(client, fullpath);
         return;
     }
     if (S_ISDIR(mode)) {
+        client->stat.num_dir++;
         send_dir(client, fullpath);
         backup_dir(client, fullpath);
         return;
     }
     if (S_ISLNK(mode)) {
+        client->stat.num_symlinks++;
         send_symlink(client, fullpath);
         return;
     }
+    client->stat.num_skipped++;
 #define INFO(pred, desc) do { \
     if (pred(mode)) { \
         fprintf(stderr, "%s is a %s, skkiped.\n", fullpath, desc); \
@@ -610,6 +629,93 @@ print_version()
     puts("Unnamed Backup Tool Client " VERSION);
 }
 
+static int
+query(Client* client, const char* name, char* value)
+{
+    send(client, name);
+
+    size_t size = BUF_SIZE;
+    char buf[BUF_SIZE];
+    if (fgets(buf, size, client->in) == NULL) {
+        PRINT_ERRNO("Failed quering", name);
+        return 1;
+    }
+    const char* head = "OK ";
+    size_t len = strlen(head);
+    if (strncmp(buf, head, len) != 0) {
+        PRINT_ERRNO("Server responsed NG in querying", name);
+        return 1;
+    }
+    char* p = buf + len;
+    char* q = strchr(p, '\r');
+    *q = '\0';
+    strncpy(value, p, BUF_SIZE);
+    return 0;
+}
+
+static int
+query_uint64(Client* client, const char* name, uint64_t* value)
+{
+    char buf[BUF_SIZE];
+    if (query(client, name, buf) != 0) {
+        return 1;
+    }
+    *value = strtoull(buf, NULL, 10);
+    return 0;
+}
+
+static void
+make_timestamp(char* buf, time_t t)
+{
+    struct tm tm;
+    localtime_r(&t, &tm);
+    strftime(buf, BUF_SIZE, "%Y-%m-%dT%H:%M:%S", &tm);
+}
+
+static int
+do_print_stat(Client* client)
+{
+    char start_time[BUF_SIZE];
+    make_timestamp(start_time, client->stat.start_time);
+    time_t t = time(NULL);
+    char end_time[BUF_SIZE];
+    make_timestamp(end_time, t);
+    time_t sec = t - client->stat.start_time;
+    int min = sec / 60;
+    int hour = min / 60;
+
+    char name[BUF_SIZE];
+    if (query(client, "NAME", name) != 0) {
+        return 1;
+    }
+    uint64_t disk_total;
+    if (query_uint64(client, "DISK_TOTAL", &disk_total) != 0) {
+        return 1;
+    }
+    uint64_t disk_usage;
+    if (query_uint64(client, "DISK_USAGE", &disk_usage) != 0) {
+        return 1;
+    }
+    uint64_t disk_available = disk_total - disk_usage;
+#define GIGA(n) ((n) / (1024 * 1024 * 1024))
+    printf("Backup name: %s\n\
+Number of files: %d\n\
+Number of changed files: %d\n\
+Number of unchanged files: %d\n\
+Number of skipped files: %d\n\
+Send bytes: %llu\n\
+Number of symbolic links: %d\n\
+Number of directories: %d\n\
+Start time: %s\n\
+End time: %s\n\
+Time: %d[sec] (%d[hour] %d[min] %d[sec])\n\
+Disk total: %llu[Gbyte]\n\
+Disk usage: %llu[Gbyte] (%llu%%)\n\
+Disk available: %llu[Gbyte] (%llu%%)\n", name, client->stat.num_files, client->stat.num_changed, client->stat.num_files - client->stat.num_changed, client->stat.num_skipped, client->stat.send_bytes, client->stat.num_symlinks, client->stat.num_dir, start_time, end_time, sec, hour, min % 60, sec % 60, GIGA(disk_total), GIGA(disk_usage), (100 * disk_usage) / disk_total, GIGA(disk_available), (100 * disk_available) / disk_total);
+#undef GIGA
+    return 0;
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -617,6 +723,7 @@ main(int argc, char* argv[])
         { "command", required_argument, NULL, 'c' },
         { "hostname", required_argument, NULL, 'h' },
         { "local", no_argument, NULL, 'l' },
+        { "print-statistics", no_argument, NULL, 's' },
         { "root", required_argument, NULL, 'r' },
         { "ubts-path", required_argument, NULL, 'u' },
         { "version", no_argument, NULL, 'v' },
@@ -628,6 +735,7 @@ main(int argc, char* argv[])
     const char* root = "/";
     const char* tmpl = "ssh {hostname} {ubts_path} {dest_dir}";
     const char* ubts_path = "ubts";
+    bool print_stat = false;
     int opt;
     while ((opt = getopt_long(argc, argv, "v", opts, NULL)) != -1) {
         switch (opt) {
@@ -642,6 +750,9 @@ main(int argc, char* argv[])
             break;
         case 'r':
             root = optarg;
+            break;
+        case 's':
+            print_stat = true;
             break;
         case 'u':
             ubts_path = optarg;
@@ -662,6 +773,12 @@ main(int argc, char* argv[])
 #undef USAGE
 
     Client client;
+    bzero(&client, sizeof(client));
+    if ((client.stat.start_time = time(NULL)) == (time_t)(-1)) {
+        print_error("time(3) failed.");
+        return 1;
+    }
+
     normalize_path(client.root, PATH_SIZE, root);
     char cmd[4096];
     const char* dest_dir = argv[argc - 1];
@@ -676,6 +793,9 @@ main(int argc, char* argv[])
         char abs_path[PATH_SIZE];
         normalize_path(abs_path, array_sizeof(abs_path), argv[i]);
         backup_tree(&client, abs_path);
+    }
+    if (print_stat && (do_print_stat(&client) != 0)) {
+        print_error("Cannot print statistics.");
     }
     send(&client, "THANK_YOU");
 

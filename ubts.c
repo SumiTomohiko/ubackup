@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mount.h>
+#include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <syslog.h>
@@ -18,6 +20,7 @@
 #include <unistd.h>
 
 #define PATH_SIZE 4096
+#define BUF_SIZE PATH_SIZE
 
 #define TRACE(fmt, ...) do { \
     fprintf(stderr, "%s:%u " fmt "\n", __FILE__, __LINE__, __VA_ARGS__); \
@@ -74,7 +77,10 @@ typedef struct Server Server;
 enum Type {
     CMD_BODY,
     CMD_DIR,
+    CMD_DISK_TOTAL,
+    CMD_DISK_USAGE,
     CMD_FILE,
+    CMD_NAME,
     CMD_SYMLINK,
     CMD_THANK_YOU,
 };
@@ -247,6 +253,47 @@ save_meta_data(const Server* server, const char* path, mode_t mode, uid_t uid, g
 }
 
 static bool
+do_name(const Server* server)
+{
+    char buf[BUF_SIZE];
+    snprintf(buf, BUF_SIZE, "OK %s", server->dest_dir);
+    send(buf);
+    return true;
+}
+
+static uint64_t
+total_of_statfs(struct statfs* buf)
+{
+    return buf->f_blocks;
+}
+
+static uint64_t
+usage_of_statfs(struct statfs* buf)
+{
+    return buf->f_blocks - buf->f_bfree;
+}
+
+#define IMPLEMENT_DISK_CMD(name, f) \
+    static bool \
+    name(const Server* server) \
+    { \
+        const char* path = server->dest_dir; \
+        struct statfs buf; \
+        if (statfs(path, &buf) != 0) { \
+            print_errno("statfs failed", errno, path); \
+            send_ng(); \
+            return false; \
+        } \
+        uint64_t val = buf.f_bsize * f(&buf); \
+        char response[BUF_SIZE]; \
+        snprintf(response, BUF_SIZE, "OK %llu", val); \
+        send(response); \
+        return true; \
+    }
+IMPLEMENT_DISK_CMD(do_disk_total, total_of_statfs);
+IMPLEMENT_DISK_CMD(do_disk_usage, usage_of_statfs);
+
+static bool
 do_dir(const Server* server, const Command* cmd)
 {
     char path[strlen(server->dest_dir) + strlen(cmd->u.dir.path) + 1];
@@ -409,7 +456,10 @@ parse_type(Type* type, const char** p)
     Name2Type name2type[] = {
         { "BODY", CMD_BODY },
         { "DIR", CMD_DIR },
+        { "DISK_TOTAL", CMD_DISK_TOTAL },
+        { "DISK_USAGE", CMD_DISK_USAGE },
         { "FILE", CMD_FILE },
+        { "NAME", CMD_NAME },
         { "SYMLINK", CMD_SYMLINK },
         { "THANK_YOU", CMD_THANK_YOU }};
     bool found = false;
@@ -599,6 +649,9 @@ parse(Command* cmd, const char* line)
         return parse_file(cmd, p);
     case CMD_SYMLINK:
         return parse_symlink(cmd, p);
+    case CMD_DISK_TOTAL:
+    case CMD_DISK_USAGE:
+    case CMD_NAME:
     case CMD_THANK_YOU:
         return 0;
     default:
@@ -622,8 +675,17 @@ run_command(Server* server, const char* line)
     case CMD_DIR:
         do_dir(server, &cmd);
         break;
+    case CMD_DISK_TOTAL:
+        do_disk_total(server);
+        break;
+    case CMD_DISK_USAGE:
+        do_disk_usage(server);
+        break;
     case CMD_FILE:
         do_file(server, &cmd);
+        break;
+    case CMD_NAME:
+        do_name(server);
         break;
     case CMD_SYMLINK:
         do_symlink(server, &cmd);
