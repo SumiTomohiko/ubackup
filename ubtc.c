@@ -309,12 +309,26 @@ print_skipped_warning(bool disabled, const char* path, const char* name)
     fprintf(stderr, "%s is a %s, skipped.\n", path, name);
 }
 
+static bool
+is_ignored(const char* path, const char* name)
+{
+    if ((strcmp(name, ".") == 0) || (strcmp(name, "..") == 0)) {
+        return true;
+    }
+    if (strcmp(name, ".meta") == 0) {
+        print_error("Warning: Ignored %s/%s", path, name);
+        return true;
+    }
+    return false;
+}
+
 static void
 send_dir_entry(Client* client, const char* path, const char* name)
 {
-    if ((strcmp(name, ".") == 0) || (strcmp(name, "..") == 0)) {
+    if (is_ignored(path, name)) {
         return;
     }
+
     char fullpath[strlen(path) + strlen(name) + 1];
     sprintf(fullpath, "%s/%s", path, name);
     struct stat sb;

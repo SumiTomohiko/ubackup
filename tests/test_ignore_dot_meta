@@ -1,0 +1,8 @@
+
+. "${LIB}"
+
+zero_or_die mkdir -p "${SRC_DIR}/.meta"
+doit "${SRC_DIR}"
+test ! -e "${DEST_DIR}/*/.meta"
+
+# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh
