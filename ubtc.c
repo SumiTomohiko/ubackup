@@ -39,6 +39,13 @@ struct Client {
         int num_symlinks;
         time_t start_time;
     } stat;
+    struct {
+        bool block_special;
+        bool char_special;
+        bool pipe;
+        bool socket;
+        bool whiteout;
+    } disable_skipped_warning;
 };
 
 typedef struct Client Client;
@@ -294,6 +301,15 @@ send_file(Client* client, const char* path)
 static void backup_dir(Client*, const char*);
 
 static void
+print_skipped_warning(bool disabled, const char* path, const char* name)
+{
+    if (disabled) {
+        return;
+    }
+    fprintf(stderr, "%s is a %s, skipped.\n", path, name);
+}
+
+static void
 send_dir_entry(Client* client, const char* path, const char* name)
 {
     if ((strcmp(name, ".") == 0) || (strcmp(name, "..") == 0)) {
@@ -324,17 +340,18 @@ send_dir_entry(Client* client, const char* path, const char* name)
         return;
     }
     client->stat.num_skipped++;
-#define INFO(pred, desc) do { \
+#define INFO(pred, desc, flag) do { \
     if (pred(mode)) { \
-        fprintf(stderr, "%s is a %s, skkiped.\n", fullpath, desc); \
+        bool disabled = client->disable_skipped_warning.flag; \
+        print_skipped_warning(disabled, fullpath, desc); \
         return; \
     } \
 } while (0)
-    INFO(S_ISBLK, "block special file");
-    INFO(S_ISCHR, "character special file");
-    INFO(S_ISFIFO, "pipe for FIFO special file");
-    INFO(S_ISSOCK, "socket");
-    INFO(S_ISWHT, "whiteout");
+    INFO(S_ISBLK, "block special file", block_special);
+    INFO(S_ISCHR, "character special file", char_special);
+    INFO(S_ISFIFO, "pipe for FIFO special file", pipe);
+    INFO(S_ISSOCK, "socket", socket);
+    INFO(S_ISWHT, "whiteout", whiteout);
 #undef INFO
     /* NOTREACHED */
     assert(42 != 42);
@@ -726,8 +743,17 @@ do_remove_old(Client* client)
 int
 main(int argc, char* argv[])
 {
+    Client client;
+    bzero(&client, sizeof(client));
+    client.disable_skipped_warning.block_special = false;
+    client.disable_skipped_warning.char_special = false;
+    client.disable_skipped_warning.pipe = false;
+    client.disable_skipped_warning.socket = false;
+    client.disable_skipped_warning.whiteout = false;
+
     struct option opts[] = {
         { "command", required_argument, NULL, 'c' },
+        { "disable-skipped-socket-warning", no_argument, NULL, 1 },
         { "hostname", required_argument, NULL, 'h' },
         { "local", no_argument, NULL, 'l' },
         { "print-statistics", no_argument, NULL, 's' },
@@ -746,6 +772,9 @@ main(int argc, char* argv[])
     int opt;
     while ((opt = getopt_long(argc, argv, "v", opts, NULL)) != -1) {
         switch (opt) {
+        case 1:
+            client.disable_skipped_warning.socket = true;
+            break;
         case 'c':
             tmpl = optarg;
             break;
@@ -779,8 +808,6 @@ main(int argc, char* argv[])
     }
 #undef USAGE
 
-    Client client;
-    bzero(&client, sizeof(client));
     if ((client.stat.start_time = time(NULL)) == (time_t)(-1)) {
         print_error("time(3) failed.");
         return 1;
