@@ -1,0 +1,12 @@
+
+. "${LIB}"
+
+doit "${SRC_DIR}"
+oldest="$(ls "${DEST_DIR}")"
+yes | head -n 93 | while read __
+do
+  doit "${SRC_DIR}"
+done
+test -z "$(find "${DEST_DIR}" -name "${oldest}")"
+
+# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh

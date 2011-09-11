@@ -67,6 +67,7 @@ print_errno(const char* msg, int e, const char* info)
 }
 
 struct Server {
+    const char* backup_dir;
     char dest_dir[PATH_SIZE];
     char prev_dir[PATH_SIZE];
     char current_file[PATH_SIZE];
@@ -81,6 +82,7 @@ enum Type {
     CMD_DISK_USAGE,
     CMD_FILE,
     CMD_NAME,
+    CMD_REMOVE_OLD,
     CMD_SYMLINK,
     CMD_THANK_YOU,
 };
@@ -460,6 +462,7 @@ parse_type(Type* type, const char** p)
         { "DISK_USAGE", CMD_DISK_USAGE },
         { "FILE", CMD_FILE },
         { "NAME", CMD_NAME },
+        { "REMOVE_OLD", CMD_REMOVE_OLD },
         { "SYMLINK", CMD_SYMLINK },
         { "THANK_YOU", CMD_THANK_YOU }};
     bool found = false;
@@ -652,12 +655,148 @@ parse(Command* cmd, const char* line)
     case CMD_DISK_TOTAL:
     case CMD_DISK_USAGE:
     case CMD_NAME:
+    case CMD_REMOVE_OLD:
     case CMD_THANK_YOU:
         return 0;
     default:
         break;
     }
     return 1;
+}
+
+static int
+count_entry(const char* name)
+{
+    return ((strcmp(name, ".") == 0) || (strcmp(name, "..") == 0)) ? 0 : 1;
+}
+
+static int
+count_dirent(Server* server)
+{
+    const char* dir = server->backup_dir;
+    int n = 0;
+    DIR* dirp = opendir(dir);
+    if (dirp == NULL) {
+        print_errno("opendir failed", errno, dir);
+        return n;
+    }
+    struct dirent* e;
+    while ((e = readdir(dirp)) != NULL) {
+        n += count_entry(e->d_name);
+    }
+    closedir(dirp);
+    return n;
+}
+
+static bool
+check_lstat_result(int e, const char* path)
+{
+    if (e == ENOENT) {
+        return true;
+    }
+    print_errno("lstat failed", e, path);
+    return false;
+}
+
+static bool remove_dir(const char*);
+
+static bool
+remove_dirent(const char* dir, const char* name)
+{
+    if ((strcmp(name, ".") == 0) || (strcmp(name, "..") == 0)) {
+        return true;
+    }
+    char path[PATH_SIZE];
+    snprintf(path, array_sizeof(path), "%s/%s", dir, name);
+    struct stat stat;
+    if (lstat(path, &stat) != 0) {
+        return check_lstat_result(errno, path);
+    }
+    if (S_ISDIR(stat.st_mode)) {
+        return remove_dir(path);
+    }
+    if ((unlink(path) != 0) && (errno != ENOENT)) {
+        print_errno("unlink failed", errno, path);
+        return false;
+    }
+    return true;
+}
+
+static bool
+remove_dir(const char* path)
+{
+    DIR* dirp = opendir(path);
+    if (dirp == NULL) {
+        print_errno("opendir failed", errno, path);
+        return false;
+    }
+    struct dirent* e;
+    while (((e = readdir(dirp)) != NULL) && remove_dirent(path, e->d_name)) {
+    }
+    closedir(dirp);
+    if ((rmdir(path) != 0) && (errno != ENOENT)) {
+        print_errno("rmdir failed", errno, path);
+        return false;
+    }
+
+    return true;
+}
+
+static int
+compar(const void* s1, const void* s2)
+{
+    return - strcmp(*((const char**)s1), *((const char**)s2));
+}
+
+static int
+update_name(const char* name, const char** p)
+{
+    if ((strcmp(name, ".") == 0) || (strcmp(name, "..") == 0)) {
+        return 0;
+    }
+    *p = name;
+    return 1;
+}
+
+static bool
+do_remove_old(Server* server)
+{
+    int max = 93;
+
+    int num_ent = count_dirent(server);
+    if (num_ent < max) {
+        send_ok();
+        return true;
+    }
+    const char* names[num_ent];
+    bzero(names, sizeof(names));
+
+    const char* dir = server->backup_dir;
+    DIR* dirp = opendir(dir);
+    if (dirp == NULL) {
+        print_errno("opendir failed", errno, dir);
+        send_ng();
+        return false;
+    }
+    int i = 0;
+    struct dirent* e;
+    while (((e = readdir(dirp)) != NULL) && (i < num_ent)) {
+        i += update_name(e->d_name, &names[i]);
+    }
+    closedir(dirp);
+
+    qsort(names, i, sizeof(names[0]), compar);
+    int j;
+    for (j = max; j < i; j++) {
+        char path[PATH_SIZE];
+        const char* name = names[j];
+        snprintf(path, array_sizeof(path), "%s/%s", server->backup_dir, name);
+        remove_dir(path);
+        print_info("Removed backup: %s", path);
+    }
+
+    send_ok();
+    return true;
 }
 
 static bool
@@ -686,6 +825,9 @@ run_command(Server* server, const char* line)
         break;
     case CMD_NAME:
         do_name(server);
+        break;
+    case CMD_REMOVE_OLD:
+        do_remove_old(server);
         break;
     case CMD_SYMLINK:
         do_symlink(server, &cmd);
@@ -825,6 +967,7 @@ main(int argc, char* argv[])
     }
 
     Server server;
+    server.backup_dir = backup_dir;
     join(server.dest_dir, PATH_SIZE, backup_dir, timestamp);
     set_prev_dir(server.prev_dir, PATH_SIZE, backup_dir, prev);
     server.current_file[0] = '\0';

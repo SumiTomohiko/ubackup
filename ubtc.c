@@ -716,6 +716,13 @@ Disk available: %llu[Gbyte] (%llu%%)\n", name, client->stat.num_files, client->s
     return 0;
 }
 
+static void
+do_remove_old(Client* client)
+{
+    send(client, "REMOVE_OLD");
+    recv_ok(client);
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -794,6 +801,7 @@ main(int argc, char* argv[])
         normalize_path(abs_path, array_sizeof(abs_path), argv[i]);
         backup_tree(&client, abs_path);
     }
+    do_remove_old(&client);
     if (print_stat && (do_print_stat(&client) != 0)) {
         print_error("Cannot print statistics.");
     }
