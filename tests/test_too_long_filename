@@ -1,0 +1,15 @@
+
+. "${LIB}"
+
+name="X"
+status=0
+while [ "${status}" -eq 0 ]
+do
+  name="${name}X"
+  touch "${SRC_DIR}/${name}" 2>/dev/null
+  status=$?
+done
+
+doit "${SRC_DIR}"
+
+# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh

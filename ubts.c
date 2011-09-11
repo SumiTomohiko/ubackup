@@ -234,7 +234,7 @@ save_meta_data(const Server* server, const char* path, mode_t mode, uid_t uid, g
     size_t prev_dir_size = strlen(server->prev_dir);
     char prev_path[prev_dir_size + strlen(meta_path) + 1];
     sprintf(prev_path, "%s%s", server->prev_dir, meta_path);
-    char abspath[prev_dir_size + strlen(meta_path) + 1];
+    char abspath[strlen(server->dest_dir) + strlen(meta_path) + 1];
     sprintf(abspath, "%s%s", server->dest_dir, meta_path);
 
     if (!check_file_changed(server, prev_path, ctime)) {
@@ -242,16 +242,18 @@ save_meta_data(const Server* server, const char* path, mode_t mode, uid_t uid, g
     }
 
     FILE* fp = fopen(abspath, "w");
-    if (fp == NULL) {
-        print_errno("fopen failed", errno, abspath);
-        return false;
+    if (fp != NULL) {
+        fprintf(fp, "%o\n", mode);
+        fprintf(fp, "%u\n", uid);
+        fprintf(fp, "%u", gid);
+        fclose(fp);
+        return true;
     }
-    fprintf(fp, "%o\n", mode);
-    fprintf(fp, "%u\n", uid);
-    fprintf(fp, "%u", gid);
-    fclose(fp);
-
-    return true;
+    if (errno == ENAMETOOLONG) {
+        return true;
+    }
+    print_errno("fopen failed", errno, abspath);
+    return false;
 }
 
 static bool
