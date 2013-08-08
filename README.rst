@@ -1,6 +1,6 @@
 
-Unnamed Backup Tool
-*******************
+ubackup
+*******
 
 The documentation is at ``doc`` directory in the source tree, and at
 http://neko-daisuki.ddo.jp/~SumiTomohiko/UnnamedBackupTool/index.html.
