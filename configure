@@ -1,0 +1,18 @@
+#!/bin/sh
+
+dir=$(dirname $0)
+opts=$(sed -e "s/ *#.*\$//" < "${dir}/configure.conf" \
+    | grep -v "^ *\$" \
+    | sed -e "s/ *: */ /" | awk '{
+    if ($1 == "prefix") {
+        name = "CMAKE_INSTALL_PREFIX"
+    }
+    else {
+        name = toupper($1)
+    }
+    printf(" -D%s=%s", name, $2)
+}')
+
+exec cmake ${opts} "${dir}"
+
+# vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4

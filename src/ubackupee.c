@@ -1,4 +1,5 @@
-#include "config.h"
+#include <ubackup/config.h>
+
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>
@@ -657,7 +658,7 @@ make_command(char* dest, size_t destsize, const char* tmpl, const char* hostname
 static void
 print_version()
 {
-    puts("Unnamed Backup Tool Client " VERSION);
+    printf("%s of ubackup %s\n", getprogname(), UBACKUP_VERSION);
 }
 
 static int
@@ -734,15 +735,15 @@ Number of files: %d\n\
 Number of changed files: %d\n\
 Number of unchanged files: %d\n\
 Number of skipped files: %d\n\
-Send bytes: %llu\n\
+Send bytes: %lu\n\
 Number of symbolic links: %d\n\
 Number of directories: %d\n\
 Start time: %s\n\
 End time: %s\n\
-Time: %d[sec] (%d[hour] %d[min] %d[sec])\n\
-Disk total: %llu[Gbyte]\n\
-Disk usage: %llu[Gbyte] (%llu%%)\n\
-Disk available: %llu[Gbyte] (%llu%%)\n", name, client->stat.num_files, client->stat.num_changed, client->stat.num_files - client->stat.num_changed, client->stat.num_skipped, client->stat.send_bytes, client->stat.num_symlinks, client->stat.num_dir, start_time, end_time, sec, hour, min % 60, sec % 60, GIGA(disk_total), GIGA(disk_usage), (100 * disk_usage) / disk_total, GIGA(disk_available), (100 * disk_available) / disk_total);
+Time: %ld[sec] (%d[hour] %d[min] %ld[sec])\n\
+Disk total: %lu[Gbyte]\n\
+Disk usage: %lu[Gbyte] (%lu%%)\n\
+Disk available: %lu[Gbyte] (%lu%%)\n", name, client->stat.num_files, client->stat.num_changed, client->stat.num_files - client->stat.num_changed, client->stat.num_skipped, client->stat.send_bytes, client->stat.num_symlinks, client->stat.num_dir, start_time, end_time, sec, hour, min % 60, sec % 60, GIGA(disk_total), GIGA(disk_usage), (100 * disk_usage) / disk_total, GIGA(disk_available), (100 * disk_available) / disk_total);
 #undef GIGA
     return 0;
 }

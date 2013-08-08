@@ -1,0 +1,9 @@
+#if !defined(UBACKUP_CONFIG_H_INCLUDED)
+#define UBACKUP_CONFIG_H_INCLUDED
+
+#define UBACKUP_VERSION @UBACKUP_VERSION@
+
+#endif
+/**
+ * vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4
+ */

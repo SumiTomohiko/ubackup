@@ -1,4 +1,5 @@
-#include "config.h"
+#include <ubackup/config.h>
+
 #include <assert.h>
 #include <ctype.h>
 #include <dirent.h>
@@ -291,7 +292,7 @@ usage_of_statfs(struct statfs* buf)
         } \
         uint64_t val = buf.f_bsize * f(&buf); \
         char response[BUF_SIZE]; \
-        snprintf(response, BUF_SIZE, "OK %llu", val); \
+        snprintf(response, BUF_SIZE, "OK %lu", val); \
         send(response); \
         return true; \
     }
@@ -365,7 +366,7 @@ do_body(const Server* server, const Command* cmd)
     }
     size_t rest = cmd->u.body.size;
     while (0 < rest) {
-        int max = 4096;
+        size_t max = 4096;
         char buf[max];
         size_t nbytes = fread(buf, 1, max < rest ? max : rest, stdin);
         fwrite(buf, 1, nbytes, fp);
@@ -469,7 +470,7 @@ parse_type(Type* type, const char** p)
         { "SYMLINK", CMD_SYMLINK },
         { "THANK_YOU", CMD_THANK_YOU }};
     bool found = false;
-    int i;
+    size_t i;
     for (i = 0; !found && (i < array_sizeof(name2type)); i++) {
         found = get_type_of_name(type, name, &name2type[i]);
     }
@@ -501,20 +502,25 @@ parse_mode(mode_t* dest, const char** p)
     return 0;
 }
 
-static int
-parse_decimal(size_t* dest, const char** p)
-{
-    skip_whitespace(p);
-
-    const char* from = *p;
-    skip(p, isdigit);
-    size_t size = *p - from;
-    char buf[size + 1];
-    memcpy(buf, from, size);
-    buf[size] = '\0';
-    *dest = strtoul(buf, NULL, 10);
-    return 0;
-}
+#define IMPLEMENT_PARSE_X(name, type, max) \
+    static int \
+    name(type* dest, const char** p) \
+    { \
+        skip_whitespace(p); \
+\
+        const char* from = *p; \
+        skip(p, isdigit); \
+        size_t size = *p - from; \
+        char buf[size + 1]; \
+        memcpy(buf, from, size); \
+        buf[size] = '\0'; \
+        unsigned long l = strtoul(buf, NULL, 10); \
+        assert(l < max); \
+        *dest = (type)l; \
+        return 0; \
+    }
+IMPLEMENT_PARSE_X(parse_decimal, size_t, ULONG_MAX)
+IMPLEMENT_PARSE_X(parse_integer, unsigned int, UINT_MAX)
 
 static int
 parse_body(Command* cmd, const char* params)
@@ -577,10 +583,10 @@ parse_symlink(Command* cmd, const char* params)
     if (parse_mode(&cmd->u.symlink.mode, &p) != 0) {
         return 1;
     }
-    if (parse_decimal(&cmd->u.symlink.uid, &p) != 0) {
+    if (parse_integer(&cmd->u.symlink.uid, &p) != 0) {
         return 1;
     }
-    if (parse_decimal(&cmd->u.symlink.gid, &p) != 0) {
+    if (parse_integer(&cmd->u.symlink.gid, &p) != 0) {
         return 1;
     }
     if (parse_timestamp(&cmd->u.symlink.ctime, &p) != 0) {
@@ -602,10 +608,10 @@ parse_file(Command* cmd, const char* params)
     if (parse_mode(&cmd->u.file.mode, &p) != 0) {
         return 1;
     }
-    if (parse_decimal(&cmd->u.file.uid, &p) != 0) {
+    if (parse_integer(&cmd->u.file.uid, &p) != 0) {
         return 1;
     }
-    if (parse_decimal(&cmd->u.file.gid, &p) != 0) {
+    if (parse_integer(&cmd->u.file.gid, &p) != 0) {
         return 1;
     }
     if (parse_timestamp(&cmd->u.file.mtime, &p) != 0) {
@@ -627,10 +633,10 @@ parse_dir(Command* cmd, const char* params)
     if (parse_mode(&cmd->u.dir.mode, &p) != 0) {
         return 1;
     }
-    if (parse_decimal(&cmd->u.dir.uid, &p) != 0) {
+    if (parse_integer(&cmd->u.dir.uid, &p) != 0) {
         return 1;
     }
-    if (parse_decimal(&cmd->u.dir.gid, &p) != 0) {
+    if (parse_integer(&cmd->u.dir.gid, &p) != 0) {
         return 1;
     }
     if (parse_timestamp(&cmd->u.dir.ctime, &p) != 0) {
@@ -935,7 +941,7 @@ set_prev_dir(char* dest, size_t size, const char* backup_dir, const char* name)
 static void
 print_version()
 {
-    puts("Unnamed Backup Tool Server " VERSION);
+    printf("%s of ubackup %s\n", getprogname(), UBACKUP_VERSION);
 }
 
 static void
