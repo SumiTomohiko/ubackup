@@ -4,15 +4,16 @@ if [ "$1" = "-d" ]; then
   sh_opt="-x"
   shift
 fi
-pattern="test_*"
-if [ "$1" != "" ]; then
-  pattern="$1"
-  shift
+
+dir=$(dirname $0)
+if [ 0 -lt $# ]; then
+  tests="$@"
+else
+  tests="$(find "${dir}" -name "test_*" -type f)"
 fi
 
 mktemp="zero_or_die mktemp -d -t"
 
-dir=$(dirname $0)
 tests_dir="${dir}/tests"
 export LIB="${tests_dir}/lib"
 . "${LIB}"
@@ -21,7 +22,7 @@ center="${tests_dir}/center"
 "${center}" "=" "Running tests"
 summary="summary.log"
 zero_or_die rm -f "${summary}"
-zero_or_die find tests -type f -name "${pattern}" | while read t
+for t in ${tests}
 do
   name=$(zero_or_die basename "${t}")
   tmp_dir=$(zero_or_die mktemp -d -t $(zero_or_die basename "${t}"))
