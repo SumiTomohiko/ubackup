@@ -1,6 +1,7 @@
 
 project(ubackup)
 cmake_minimum_required(VERSION 2.8)
+set(CMAKE_VERBOSE_MAKEFILE 1)
 
 set(UBACKUP_VERSION \"1.0.0dev1\")
 
