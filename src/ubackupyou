@@ -1,0 +1,9 @@
+#!/bin/sh
+
+dir="$(dirname $0)"
+
+. "${dir}/../share/ubackup/ubackup.sh"
+
+flange "${cmd} ubackupee ${srcdirs}" "ubackuper ${destdir}"
+
+# vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4

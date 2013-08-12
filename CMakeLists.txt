@@ -10,6 +10,6 @@ include_directories(${INCLUDE_DIR})
 configure_file(
     ${INCLUDE_DIR}/ubackup/config.h.in ${INCLUDE_DIR}/ubackup/config.h)
 
-subdirs(src)
+subdirs(share src)
 
 # vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4

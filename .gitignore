@@ -8,10 +8,11 @@
 /cmake_install.cmake
 /configure.conf
 /include/ubackup/config.h
+/share/CMakeFiles
+/share/Makefile
+/share/cmake_install.cmake
 /src/CMakeFiles
 /src/Makefile
 /src/cmake_install.cmake
 /src/ubackupee
 /src/ubackuper
-/src/ubackupme
-/src/ubackupyou

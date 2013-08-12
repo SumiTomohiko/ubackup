@@ -395,71 +395,6 @@ backup_tree(Client* client, const char* path)
 }
 
 static void
-create_pipe(int fildes[2])
-{
-    if (pipe(fildes) != 0) {
-        PRINT_ERRNO2("pipe failed");
-        abort();
-    }
-}
-
-#define READ 0
-#define WRITE 1
-
-static void
-dup_fd(int old, int new)
-{
-    if (dup2(old, new) == -1) {
-        PRINT_ERRNO2("dup2 failed");
-        abort();
-    }
-}
-
-static FILE*
-do_fdopen(int fd, const char* mode)
-{
-    FILE* fp = fdopen(fd, mode);
-    if (fp == NULL) {
-        PRINT_ERRNO2("fdopen failed");
-        abort();
-    }
-    return fp;
-}
-
-static pid_t
-exec_server(Client* client, char* cmd)
-{
-    int c2s[2];
-    create_pipe(c2s);
-    int s2c[2];
-    create_pipe(s2c);
-
-    pid_t pid = fork();
-    if (pid == -1) {
-        PRINT_ERRNO2("fork failed");
-        abort();
-    }
-    if (0 < pid) {
-        close(s2c[WRITE]);
-        close(c2s[READ]);
-        client->in = do_fdopen(s2c[READ], "r");
-        client->out = do_fdopen(c2s[WRITE], "w");
-        return pid;
-    }
-    dup_fd(c2s[READ], 0);
-    dup_fd(s2c[WRITE], 1);
-    close(c2s[WRITE]);
-    close(s2c[READ]);
-    char* argv[] = { "/bin/sh", "-c", cmd, NULL };
-    if (execv(argv[0], argv) == -1) {
-        PRINT_ERRNO2("execv failed");
-        abort();
-    }
-    /* NOTREACHED */
-    return 0;
-}
-
-static void
 usage(const char* ident)
 {
     printf("%s [--command=cmd] [--root=root] src_dir ... dest_dir\n", ident);
@@ -565,94 +500,6 @@ normalize_path(char* dest, size_t size, const char* path)
         return;
     }
     remove_trailing_path_separators(to, path);
-}
-
-struct Pair {
-    const char* name;
-    const char* value;
-};
-
-typedef struct Pair Pair;
-
-static const char*
-get_value_of_pair(Pair* pairs, int size, const char* name)
-{
-    int result = !0;
-    int i;
-    for (i = 0; (result != 0) && (i < size); i++) {
-        result = strcmp(name, pairs[i].name);
-    }
-    return result == 0 ? pairs[i - 1].value : NULL;
-}
-
-static const char*
-get_template_value(const char* name, const char* hostname, const char* ubts_path, const char* dest_dir)
-{
-    Pair name2value[] = {
-        { "dest_dir", dest_dir },
-        { "hostname", hostname },
-        { "ubts_path", ubts_path }};
-    return get_value_of_pair(name2value, array_sizeof(name2value), name);
-}
-
-static void
-print_blank_template_value_error(const char* name)
-{
-    Pair name2opt[] = {
-        { "hostname", "hostname" },
-        { "ubts_path", "ubts-path" }};
-    const char* opt = get_value_of_pair(name2opt, array_sizeof(name2opt), name);
-    print_error("You must give --%s option.", opt);
-}
-
-static int
-replace_template(char* dest, const char* destend, const char* tmpl, const char* hostname, const char* ubts_path, const char* dest_dir)
-{
-    const char* p = tmpl;
-    char* q = dest;
-#define TEMPLATE_FINISH(p) (*(p) == '\0')
-#define DEST_FINISH(p) (destend <= (p))
-    while (!TEMPLATE_FINISH(p) && (*p != '{') && !DEST_FINISH(q)) {
-        *q = *p;
-        p++;
-        q++;
-    }
-    if (TEMPLATE_FINISH(p)) {
-        return 0;
-    }
-    if (DEST_FINISH(q)) {
-        print_error("Too long template");
-        return 1;
-    }
-#undef TEMPLATE_FINISH
-
-    p++;
-    const char* pend = strchr(p, '}');
-    if (pend == NULL) {
-        print_error("You must close a template variable with '}'");
-        return 1;
-    }
-    size_t size = pend - p;
-    char name[size + 1];
-    memcpy(name, p, size);
-    name[size] = '\0';
-    const char* value = get_template_value(name, hostname, ubts_path, dest_dir);
-    if (value == NULL) {
-        print_error("Unknown a template variable: %s", name);
-        return 1;
-    }
-    if (strcmp(value, "") == 0) {
-        print_blank_template_value_error(name);
-        return 1;
-    }
-    q = stpncpy(q, value, destend - q);
-    return replace_template(q, destend, pend + 1, hostname, ubts_path, dest_dir);
-}
-
-static int
-make_command(char* dest, size_t destsize, const char* tmpl, const char* hostname, const char* ubts_path, const char* dest_dir)
-{
-    return replace_template(dest, dest + destsize, tmpl, hostname, ubts_path, dest_dir);
 }
 
 static void
@@ -816,8 +663,8 @@ main(int argc, char* argv[])
             return 1;
         }
     }
-    if (argc - 1 <= optind) {
-        print_error("Give both source directories and a destination directory.");
+    if (argc - 1 < optind) {
+        print_error("Give backuped directories.");
         USAGE();
         return 1;
     }
@@ -829,16 +676,12 @@ main(int argc, char* argv[])
     }
 
     normalize_path(client.root, PATH_SIZE, root);
-    char cmd[4096];
-    const char* dest_dir = argv[argc - 1];
-    if (make_command(cmd, array_sizeof(cmd), tmpl, hostname, ubts_path, dest_dir) != 0) {
-        return 1;
-    }
 
-    pid_t pid = exec_server(&client, cmd);
+    client.in = stdin;
+    client.out = stdout;
 
     int i;
-    for (i = optind; i < argc - 1; i++) {
+    for (i = optind; i < argc; i++) {
         char abs_path[PATH_SIZE];
         normalize_path(abs_path, array_sizeof(abs_path), argv[i]);
         backup_tree(&client, abs_path);
@@ -848,9 +691,6 @@ main(int argc, char* argv[])
         print_error("Cannot print statistics.");
     }
     send(&client, "THANK_YOU");
-
-    int status;
-    waitpid(pid, &status, 0);
 
     return 0;
 }

@@ -1,6 +1,4 @@
 
-add_executable(ubackupme ubackupme.c)
-add_executable(ubackupyou ubackupyou.c)
 add_executable(ubackupee ubackupee.c)
 add_executable(ubackuper ubackuper.c)
 
