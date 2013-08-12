@@ -17,3 +17,7 @@
 /src/cmake_install.cmake
 /src/ubackupee
 /src/ubackuper
+/tests/CMakeFiles
+/tests/Makefile
+/tests/center
+/tests/cmake_install.cmake
