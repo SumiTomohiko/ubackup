@@ -9,9 +9,9 @@
 /configure.conf
 /include/ubackup/config.h
 /install_manifest.txt
-/share/CMakeFiles
-/share/Makefile
-/share/cmake_install.cmake
+/share/ubackup/CMakeFiles
+/share/ubackup/Makefile
+/share/ubackup/cmake_install.cmake
 /src/CMakeFiles
 /src/Makefile
 /src/cmake_install.cmake
