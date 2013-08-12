@@ -21,7 +21,7 @@ export LIB="${tests_dir}/lib"
 center="${tests_dir}/center"
 "${center}" "=" "Running tests"
 summary="summary.log"
-zero_or_die rm -f "${summary}"
+zero_or_die : > "${summary}"
 for t in ${tests}
 do
   name=$(zero_or_die basename "${t}")
