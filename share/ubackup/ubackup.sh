@@ -1,4 +1,18 @@
 
+opts=""
+while [ 0 -lt $# ]
+do
+    case "$1" in
+    --print-statistics|--root=*)
+        opts="${opts} $1"
+        shift
+        ;;
+    *)
+        break
+        ;;
+    esac
+done
+
 method="$1"
 shift
 case "${method}" in
