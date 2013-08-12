@@ -8,6 +8,7 @@
 /cmake_install.cmake
 /configure.conf
 /include/ubackup/config.h
+/install_manifest.txt
 /share/CMakeFiles
 /share/Makefile
 /share/cmake_install.cmake
