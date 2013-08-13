@@ -1,15 +1,15 @@
 #!/bin/sh
 
 if [ "$1" = "-d" ]; then
-  sh_opt="-x"
-  shift
+    sh_opt="-x"
+    shift
 fi
 
 dir=$(dirname $0)
 if [ 0 -lt $# ]; then
-  tests="$@"
+    tests="$@"
 else
-  tests="$(find "${dir}" -name "test_*" -type f)"
+    tests="$(find "${dir}" -name "test_*" -type f)"
 fi
 
 mktemp="zero_or_die mktemp -d -t"
@@ -24,26 +24,26 @@ summary="summary.log"
 zero_or_die : > "${summary}"
 for t in ${tests}
 do
-  name=$(zero_or_die basename "${t}")
-  tmp_dir=$(zero_or_die mktemp -d -t $(zero_or_die basename "${t}"))
-  export SRC_DIR="${tmp_dir}/src.test"
-  export DEST_DIR="${tmp_dir}/dest.test"
-  zero_or_die mkdir -p "${SRC_DIR}" "${DEST_DIR}"
-  export CMD="${dir}/src/ubackupme --root=\"${SRC_DIR}\" local"
-  "${center}" "-" "${t}"
-  sh ${sh_opt} "${t}"
-  if [ $? -eq 0 ]; then
-    result="OK"
-  else
-    result="NG"
-    echo "${t}" >> ${summary}
-  fi
-  echo "${t}: ${result}"
-  zero_or_die rm -rf "${tmp_dir}"
+    name=$(zero_or_die basename "${t}")
+    tmp_dir=$(zero_or_die mktemp -d -t $(zero_or_die basename "${t}"))
+    export SRC_DIR="${tmp_dir}/src.test"
+    export DEST_DIR="${tmp_dir}/dest.test"
+    zero_or_die mkdir -p "${SRC_DIR}" "${DEST_DIR}"
+    export CMD="${dir}/src/ubackupme --root=\"${SRC_DIR}\" local"
+    "${center}" "-" "${t}"
+    sh ${sh_opt} "${t}"
+    if [ $? -eq 0 ]; then
+        result="OK"
+    else
+        result="NG"
+        echo "${t}" >> ${summary}
+    fi
+    echo "${t}: ${result}"
+    zero_or_die rm -rf "${tmp_dir}"
 done
 
 "${center}" "=" "Summary"
 zero_or_die cat "${summary}" | zero_or_die sort
 zero_or_die rm -f "${summary}"
 
-# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2
+# vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4

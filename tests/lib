@@ -1,16 +1,16 @@
 
 doit()
 {
-  eval ${CMD} "$@" "${DEST_DIR}"
+    eval ${CMD} "$@" "${DEST_DIR}"
 }
 
 zero_or_die()
 {
-  "$@"
-  if [ $? != 0 ]; then
-    echo "Failed: $@" >&2
-    exit 1
-  fi
+    "$@"
+    if [ $? != 0 ]; then
+        echo "Failed: $@" >&2
+        exit 1
+    fi
 }
 
-# vim: tabstop=2 shiftwidth=2 expandtab softtabstop=2 filetype=sh
+# vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4 filetype=sh
