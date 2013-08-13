@@ -614,22 +614,15 @@ main(int argc, char* argv[])
     client.disable_skipped_warning.whiteout = false;
 
     struct option opts[] = {
-        { "command", required_argument, NULL, 'c' },
         { "disable-skipped-socket-warning", no_argument, NULL, 1 },
-        { "hostname", required_argument, NULL, 'h' },
-        { "local", no_argument, NULL, 'l' },
         { "print-statistics", no_argument, NULL, 's' },
         { "root", required_argument, NULL, 'r' },
-        { "ubts-path", required_argument, NULL, 'u' },
         { "version", no_argument, NULL, 'v' },
         { NULL, 0, NULL, 0 }
     };
 
 #define USAGE() usage(basename(argv[0]))
-    const char* hostname = "";
     const char* root = "/";
-    const char* tmpl = "ssh {hostname} {ubts_path} {dest_dir}";
-    const char* ubts_path = "ubts";
     bool print_stat = false;
     int opt;
     while ((opt = getopt_long(argc, argv, "v", opts, NULL)) != -1) {
@@ -637,23 +630,11 @@ main(int argc, char* argv[])
         case 1:
             client.disable_skipped_warning.socket = true;
             break;
-        case 'c':
-            tmpl = optarg;
-            break;
-        case 'h':
-            hostname = optarg;
-            break;
-        case 'l':
-            tmpl = "{ubts_path} {dest_dir}";
-            break;
         case 'r':
             root = optarg;
             break;
         case 's':
             print_stat = true;
-            break;
-        case 'u':
-            ubts_path = optarg;
             break;
         case 'v':
             print_version();
