@@ -32,7 +32,7 @@ do
         export SRC_DIR="${tmp_dir}/src.test"
         export DEST_DIR="${tmp_dir}/dest.test"
         zero_or_die mkdir -p "${SRC_DIR}" "${DEST_DIR}"
-        export CMD="${dir}/src/ubackupme --root=\"${SRC_DIR}\" local"
+        export CMD="${dir}/src/${exe} --root=\"${SRC_DIR}\" local"
         "${center}" "-" "${t}"
         sh ${sh_opt} "${t}"
         fullname="${exe}: ${t}"
