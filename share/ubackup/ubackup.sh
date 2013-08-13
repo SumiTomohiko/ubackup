@@ -1,10 +1,10 @@
 
-opts=""
+ubackupee_opts=""
 while [ 0 -lt $# ]
 do
     case "$1" in
     --print-statistics|--root=*)
-        opts="${opts} $1"
+        ubackupee_opts="${ubackupee_opts} $1"
         shift
         ;;
     *)

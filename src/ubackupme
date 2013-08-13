@@ -4,6 +4,6 @@ dir="$(dirname $0)"
 
 . "${dir}/../share/ubackup/ubackup.sh"
 
-flange "${cmd} ubackuper ${destdir}" "ubackupee ${opts} ${srcdirs}"
+flange "${cmd} ubackuper ${destdir}" "ubackupee ${ubackupee_opts} ${srcdirs}"
 
 # vim: tabstop=4 shiftwidth=4 expandtab softtabstop=4
