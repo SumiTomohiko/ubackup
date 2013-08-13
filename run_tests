@@ -19,27 +19,32 @@ export LIB="${tests_dir}/lib"
 . "${LIB}"
 
 center="${tests_dir}/center"
-"${center}" "=" "Running tests"
 summary="summary.log"
 zero_or_die : > "${summary}"
-for t in ${tests}
+for exe in ubackupme ubackupyou
 do
-    name=$(zero_or_die basename "${t}")
-    tmp_dir=$(zero_or_die mktemp -d -t $(zero_or_die basename "${t}"))
-    export SRC_DIR="${tmp_dir}/src.test"
-    export DEST_DIR="${tmp_dir}/dest.test"
-    zero_or_die mkdir -p "${SRC_DIR}" "${DEST_DIR}"
-    export CMD="${dir}/src/ubackupme --root=\"${SRC_DIR}\" local"
-    "${center}" "-" "${t}"
-    sh ${sh_opt} "${t}"
-    if [ $? -eq 0 ]; then
-        result="OK"
-    else
-        result="NG"
-        echo "${t}" >> ${summary}
-    fi
-    echo "${t}: ${result}"
-    zero_or_die rm -rf "${tmp_dir}"
+    "${center}" "=" "Running tests for ${exe}"
+
+    for t in ${tests}
+    do
+        name=$(zero_or_die basename "${t}")
+        tmp_dir=$(zero_or_die mktemp -d -t $(zero_or_die basename "${t}"))
+        export SRC_DIR="${tmp_dir}/src.test"
+        export DEST_DIR="${tmp_dir}/dest.test"
+        zero_or_die mkdir -p "${SRC_DIR}" "${DEST_DIR}"
+        export CMD="${dir}/src/ubackupme --root=\"${SRC_DIR}\" local"
+        "${center}" "-" "${t}"
+        sh ${sh_opt} "${t}"
+        fullname="${exe}: ${t}"
+        if [ $? -eq 0 ]; then
+            result="OK"
+        else
+            result="NG"
+            echo "${fullname}" >> ${summary}
+        fi
+        echo "${fullname}: ${result}"
+        zero_or_die rm -rf "${tmp_dir}"
+    done
 done
 
 "${center}" "=" "Summary"
