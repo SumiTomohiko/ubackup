@@ -70,19 +70,39 @@ How to use
 ==========
 
 There are two tools in ubackup -- ubackupme and ubackupyou. ubackupme is one to
-backup local directories to a local/remote machine. ubackupyou is a tool to
-backup local/remote directories into a local directory. Usages of these are
-same::
+backup local directories to a remote machine. ubackupyou is a tool to backup
+remote directories into a local directory.
 
-    ubackupme {local/ssh} srcdirs... destdir
-    ubackupyou {local/ssh} srcdirs... destdir
+Backup local directories into a remote directory
+------------------------------------------------
 
-If you want to backup from/to a remote machine, the first argument must be
-"ssh". The first argument of "local" is usable to backup from/to a local
-machine.
+If you want to backup your local directories to a remote directory, the command
+which you must use is::
 
-All arguments from the second one but the last are source directoires. The last
-argument is a destination directory.
+    ubackupme ssh hostname srcdirs... destdir
+
+``hostname`` must be replaced with name of a remote machine.
+
+All arguments from the fourth one but the last are source directoires. The last
+argument is a destination directory in a remote machine.
+
+Backup remote directories into a local directory
+------------------------------------------------
+
+To backup remote directories into a local directory, the command is::
+
+    ubackupyou ssh hostname srcdirs... destdir
+
+Backup local directoires into a local directory
+-----------------------------------------------
+
+ubackup is also useful to backup local directories into another local directory
+in an external storage. You can use both of ubackupme and ubackupyou::
+
+    ubackupme local srcdirs... destdir
+    ubackupyou local srcdirs... destdir
+
+Results of these two commands are same.
 
 Structure of a backup directory
 ===============================
